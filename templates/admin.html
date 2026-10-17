@@ -17,7 +17,7 @@
       <div class="flex items-center gap-3">
         <div class="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-xl">🌱</div>
         <div>
-          <h1 class="text-lg sm:text-xl font-bold text-[#1B4332]">「BLIA佛光永續學院」後台管理系統</h1>
+          <h1 class="text-lg sm:text-xl font-bold text-[#1F2937]">「BLIA佛光永續學院」後台管理系統</h1>
           <p class="text-xs text-gray-400">登入管理者：{{ current_admin.email }} ({{ current_admin.role }})</p>
         </div>
       </div>
@@ -60,7 +60,7 @@
               <span>🛡️ 管理者帳號維護</span>
               <span class="text-xs text-gray-400 font-normal">共 {{ admins|length }} 位</span>
             </h3>
-            <button onclick="openAdminModal()" class="px-3.5 py-2 bg-[#3B7A57] hover:bg-[#2D6A4F] text-white text-xs font-semibold rounded-xl shadow-xs transition">
+            <button onclick="openAdminModal()" class="px-3.5 py-2 bg-[#15803D] hover:bg-[#166534] text-white text-xs font-semibold rounded-xl shadow-xs transition">
               + 新增管理者
             </button>
           </div>
@@ -109,7 +109,7 @@
               <span class="text-xs text-gray-400 font-normal">共 {{ students|length }} 位學員</span>
             </h3>
             <div class="flex items-center gap-2.5 flex-wrap">
-              <button type="button" onclick="openStudentModal()" class="px-3.5 py-2 bg-[#3B7A57] hover:bg-[#2D6A4F] text-white text-xs font-semibold rounded-xl shadow-xs transition">
+              <button type="button" onclick="openStudentModal()" class="px-3.5 py-2 bg-[#15803D] hover:bg-[#166534] text-white text-xs font-semibold rounded-xl shadow-xs transition">
                 + 新增學員
               </button>
 
@@ -167,7 +167,7 @@
               <span class="text-xs text-gray-400 font-normal">共 {{ courses|length }} 堂課程</span>
             </h3>
             <div class="flex items-center gap-2.5 flex-wrap">
-              <button onclick="openCourseModal()" class="px-3.5 py-2 bg-[#3B7A57] hover:bg-[#2D6A4F] text-white text-xs font-semibold rounded-xl shadow-xs transition">
+              <button onclick="openCourseModal()" class="px-3.5 py-2 bg-[#15803D] hover:bg-[#166534] text-white text-xs font-semibold rounded-xl shadow-xs transition">
                 + 新增課程
               </button>
 
@@ -249,7 +249,7 @@
       </div>
       <div class="flex justify-end gap-2 pt-2">
         <button onclick="closeStudentModal()" class="px-4 py-2 text-sm text-gray-500 hover:bg-gray-100 rounded-xl">取消</button>
-        <button onclick="saveStudent()" class="px-4 py-2 bg-[#3B7A57] text-white text-sm font-medium rounded-xl">儲存</button>
+        <button onclick="saveStudent()" class="px-4 py-2 bg-[#15803D] text-white text-sm font-medium rounded-xl">儲存</button>
       </div>
     </div>
   </div>
@@ -279,7 +279,7 @@
       </div>
       <div class="flex justify-end gap-2 pt-2">
         <button onclick="closeCourseModal()" class="px-4 py-2 text-sm text-gray-500 hover:bg-gray-100 rounded-xl">取消</button>
-        <button onclick="saveCourse()" class="px-4 py-2 bg-[#3B7A57] text-white text-sm font-medium rounded-xl">儲存</button>
+        <button onclick="saveCourse()" class="px-4 py-2 bg-[#15803D] text-white text-sm font-medium rounded-xl">儲存</button>
       </div>
     </div>
   </div>
@@ -300,7 +300,7 @@
       </div>
       <div class="flex justify-end gap-2 pt-2">
         <button onclick="closeChangePwdModal()" class="px-4 py-2 text-sm text-gray-500 hover:bg-gray-100 rounded-xl">取消</button>
-        <button onclick="saveNewPassword()" class="px-4 py-2 bg-[#3B7A57] text-white text-sm font-medium rounded-xl">儲存密碼</button>
+        <button onclick="saveNewPassword()" class="px-4 py-2 bg-[#15803D] text-white text-sm font-medium rounded-xl">儲存密碼</button>
       </div>
     </div>
   </div>
@@ -329,7 +329,7 @@
       </div>
       <div class="flex justify-end gap-2 pt-2">
         <button onclick="closeAdminModal()" class="px-4 py-2 text-sm text-gray-500 hover:bg-gray-100 rounded-xl">取消</button>
-        <button onclick="saveAdminAccount()" class="px-4 py-2 bg-[#3B7A57] text-white text-sm font-medium rounded-xl">儲存</button>
+        <button onclick="saveAdminAccount()" class="px-4 py-2 bg-[#15803D] text-white text-sm font-medium rounded-xl">儲存</button>
       </div>
     </div>
   </div>

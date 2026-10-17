@@ -24,4 +24,3 @@ body.attendance-platform { display: block; padding: 0; background: var(--ds-bg);
   .attendance-platform [id$="Modal"] { align-items: flex-start; padding: 12px; }
   .attendance-platform [id$="Modal"] > div { max-height: calc(100dvh - 24px); }
 }
-

@@ -23,7 +23,7 @@
       <div class="flex items-center gap-3">
         <div class="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-2xl">🌱</div>
         <div>
-          <h1 class="text-lg sm:text-xl font-bold text-[#1B4332]">「BLIA佛光永續學院」簽到系統</h1>
+          <h1 class="text-lg sm:text-xl font-bold text-[#1F2937]">「BLIA佛光永續學院」簽到系統</h1>
           <p class="text-xs text-gray-500 mt-0.5">
             歡迎，<strong class="text-gray-800 font-semibold">{{ student.name }}</strong> 學員
             <span class="text-gray-300 mx-1">|</span>
@@ -74,7 +74,7 @@
           <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div>
               <div class="flex items-center gap-2 flex-wrap">
-                <span class="px-2 py-0.5 rounded bg-emerald-100/70 text-[#1B4332] text-xs font-bold font-mono">第 {{ course.id }} 堂</span>
+                <span class="px-2 py-0.5 rounded bg-emerald-100/70 text-[#1F2937] text-xs font-bold font-mono">第 {{ course.id }} 堂</span>
                 <h3 class="font-bold text-gray-900 text-sm sm:text-base">{{ course.title }}</h3>
               </div>
               <div class="text-xs text-gray-500 mt-1.5 flex flex-wrap gap-x-3 gap-y-1">
@@ -108,7 +108,7 @@
             {% elif course.status in ['ON_LEAVE', 'MAKEUP_DONE'] %}
               <button disabled class="w-full py-2.5 bg-gray-100 text-gray-400 text-sm font-medium rounded-xl cursor-not-allowed">簽到</button>
             {% else %}
-              <button onclick="doCheckin({{ course.id }})" class="w-full py-2.5 bg-[#3B7A57] hover:bg-[#2D6A4F] text-white text-sm font-semibold rounded-xl transition shadow-xs cursor-pointer">簽到</button>
+              <button onclick="doCheckin({{ course.id }})" class="w-full py-2.5 bg-[#15803D] hover:bg-[#166534] text-white text-sm font-semibold rounded-xl transition shadow-xs cursor-pointer">簽到</button>
             {% endif %}
 
             {# 2. 請假按鈕 #}
@@ -144,7 +144,7 @@
       <input type="hidden" id="leaveCourseId">
       <div>
         <label class="block text-xs font-semibold text-gray-600 mb-1.5">請假事由 (必填)</label>
-        <textarea id="leaveReason" rows="3" placeholder="請輸入請假原因..." class="w-full p-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#3B7A57]/30"></textarea>
+        <textarea id="leaveReason" rows="3" placeholder="請輸入請假原因..." class="w-full p-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#15803D]/30"></textarea>
       </div>
       <div class="flex justify-end gap-2 pt-2">
         <button onclick="closeLeaveModal()" class="px-4 py-2 text-xs text-gray-500 hover:bg-gray-100 rounded-xl font-medium">取消</button>

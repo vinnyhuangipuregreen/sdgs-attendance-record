@@ -14,7 +14,7 @@
 
     <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
       <div>
-        <a href="/admin" class="text-xs text-[#3B7A57] hover:underline font-medium">← 返回後台課程列表</a>
+        <a href="/admin" class="text-xs text-[#15803D] hover:underline font-medium">← 返回後台課程列表</a>
         <h1 class="text-xl font-bold text-[#234E36] mt-1">{{ course.title }} · 學員簽到狀況</h1>
         <p class="text-xs text-gray-400 mt-0.5">📅 日期: {{ course.course_date }} | 🕒 時間: {{ course.course_time }} | 🔓 開放: {{ course.open_time }}</p>
       </div>
@@ -25,7 +25,7 @@
         </div>
         <div class="text-center">
           <div class="text-xs text-emerald-600 font-medium">已簽到</div>
-          <div class="text-xl font-bold text-[#3B7A57]">{{ signed_count }} 人</div>
+          <div class="text-xl font-bold text-[#15803D]">{{ signed_count }} 人</div>
         </div>
         <div class="text-center">
           <div class="text-xs text-gray-400">未簽到</div>
@@ -40,7 +40,7 @@
         <h2 class="text-base font-bold text-gray-800 flex items-center gap-2">
           <span>🔍 學員簽到名冊複合查詢</span>
           <span class="text-xs text-gray-500 font-normal">
-            (符合條件：<span id="filteredCount" class="font-bold text-[#3B7A57]">{{ total_count }}</span> / {{ total_count }} 人)
+            (符合條件：<span id="filteredCount" class="font-bold text-[#15803D]">{{ total_count }}</span> / {{ total_count }} 人)
           </span>
         </h2>
         <button onclick="resetFilters()" class="text-xs text-gray-400 hover:text-gray-600 transition">
@@ -56,7 +56,7 @@
             id="filterName" 
             oninput="applyFilter()" 
             placeholder="搜尋姓名..."
-            class="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#3B7A57]/30"
+            class="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#15803D]/30"
           >
         </div>
 
@@ -67,7 +67,7 @@
             id="filterEmail" 
             oninput="applyFilter()" 
             placeholder="搜尋 Email..."
-            class="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#3B7A57]/30"
+            class="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#15803D]/30"
           >
         </div>
 
@@ -78,7 +78,7 @@
             id="filterPhone" 
             oninput="applyFilter()" 
             placeholder="搜尋聯絡電話..."
-            class="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#3B7A57]/30"
+            class="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#15803D]/30"
           >
         </div>
 
@@ -87,7 +87,7 @@
           <select 
             id="filterStatus" 
             onchange="applyFilter()" 
-            class="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#3B7A57]/30"
+            class="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#15803D]/30"
           >
             <option value="ALL">全部狀況</option>
             <option value="SIGNED_IN">已簽到</option>
@@ -150,7 +150,7 @@
       </div>
       <div class="flex justify-center gap-8 mt-4 text-xs font-medium text-gray-600">
         <div class="flex items-center gap-1.5">
-          <span class="w-3 h-3 rounded-full bg-[#3B7A57] inline-block"></span>
+          <span class="w-3 h-3 rounded-full bg-[#15803D] inline-block"></span>
           已簽到：{{ signed_count }} 人
         </div>
         <div class="flex items-center gap-1.5">
@@ -210,7 +210,7 @@
         labels: ['已簽到', '未簽到'],
         datasets: [{
           data: [{{ signed_count }}, {{ not_signed_count }}],
-          backgroundColor: ['#3B7A57', '#E0E0E0'],
+          backgroundColor: ['#15803D', '#E0E0E0'],
           borderWidth: 2,
           borderColor: '#ffffff'
         }]
