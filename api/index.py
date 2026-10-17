@@ -141,7 +141,9 @@ def get_current_admin(request: Request):
         return None
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
-        admin = next((a for a in request.state.db["admins"] if a["id"] == payload.get("id")), None)
+        if payload.get("role") not in {"superadmin", "admin"}:
+            return None
+        admin = next((a for a in request.state.db["admins"] if a["id"] == payload.get("id") and a["email"] == payload.get("email")), None)
         if admin and admin["status"] == "active":
             return admin
     except:

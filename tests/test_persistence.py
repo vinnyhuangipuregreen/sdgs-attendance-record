@@ -109,3 +109,10 @@ class PersistenceTests(unittest.TestCase):
                 response = client.post("/api/admin/courses", json={"title": "衝突測試"})
             self.assertEqual(response.status_code, 409)
             self.assertNotIn("衝突測試", str(AttendanceStore().load()[1]))
+
+    def test_student_token_cannot_be_used_as_an_admin_token(self):
+        with TestClient(index.app) as client:
+            account = index.SEED_DATA["students"][0]
+            self.assertEqual(client.post("/api/auth/login", data={"email": account["email"], "phone": account["phone"]}).status_code, 200)
+            client.cookies.set("admin_token", client.cookies.get("token"))
+            self.assertEqual(client.post("/api/admin/courses", json={"title": "拒絕越權"}).status_code, 401)
