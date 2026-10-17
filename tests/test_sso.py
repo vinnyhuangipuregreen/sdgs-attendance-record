@@ -81,6 +81,8 @@ class CourseSsoTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertNotIn('aria-label="主要功能"', response.text)
         self.assertNotIn("登出後台", response.text)
+        self.assertNotIn('id="panel-students"', response.text)
+        self.assertNotIn('id="panel-admins"', response.text)
         self.assertIn("switchTab('courses')", response.text)
         for section in ("attendance", "leaves", "pathdemy"):
             self.assertEqual(self.client.get(f"/admin/courses/1/{section}", headers=headers).status_code, 200)
