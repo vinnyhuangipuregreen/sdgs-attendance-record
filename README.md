@@ -13,3 +13,9 @@ BLIA SDGs 社會影響力系統的課程、簽到、請假與補課模組。
 本機可使用 `DATABASE_PATH` 指向測試 SQLite；Vercel 缺少 Turso 設定時拒絕啟動，避免誤用暫存資料庫。
 
 驗證：`python -m unittest discover -s tests -v`。測試使用臨時資料庫，不更動正式資料。使用者現有 uploadfile 檔案未自動匯入、搬移或覆蓋。
+
+## 系統單一登入
+
+課程入口會透過主平台登入，以一次性 PKCE 授權碼建立本模組 HttpOnly 工作階段；已登入主平台者不需重複輸入帳密。每次驗證均向主平台確認帳號與權限；舊的課程獨立密碼與 token/admin_token Cookie 不再作為登入依據。帳號權限集中在 sdgs-role-permission，課程與出席資料仍在本資料庫。
+
+platform_key 使用中央帳號類型與 ID，既有唯一 Email 對應的課程學員會保留本地 ID，維持簽到紀錄關聯；同 Email 的不同中央帳號不會合併。

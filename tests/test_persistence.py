@@ -1,5 +1,7 @@
 import copy
 import io
+import jwt
+import time
 import os
 import tempfile
 import unittest
@@ -20,8 +22,11 @@ class PersistenceTests(unittest.TestCase):
             "TURSO_DATABASE_URL": "", "TURSO_AUTH_TOKEN": "", "VERCEL": "",
         })
         self.env.start()
+        self.platform_patch = patch("api.sso.platform_request", side_effect=self.platform_response)
+        self.platform_patch.start()
 
     def tearDown(self):
+        self.platform_patch.stop()
         self.env.stop()
         self.temp.cleanup()
 
@@ -54,10 +59,19 @@ class PersistenceTests(unittest.TestCase):
                 with self.assertRaises(RuntimeError):
                     AttendanceStore()
 
+    def platform_response(self, path, token=None, payload=None):
+        if path == "/api/auth/sso/roster": return []
+        if token == "test-admin":
+            return {"id":1,"name":"Admin","email":"admin@test.invalid","email_backup":"","phone":"0901","role":"admin","account_type":"staff"}
+        return {"id":2,"name":"測試學員","email":"student@example.invalid","email_backup":"makeup@example.invalid","phone":"0900000000","role":"student","account_type":"student"}
+
     def login_admin(self, client):
-        account = index.SEED_DATA["admins"][0]
-        response = client.post("/api/admin/auth/login", data={"email": account["email"], "password": account["password"]})
-        self.assertEqual(response.status_code, 200)
+        self.set_session(client, "test-admin")
+        self.assertEqual(client.get("/admin").status_code, 200)
+
+    def set_session(self, client, token="test-student"):
+        session = jwt.encode({"access_token":token,"exp":int(time.time())+300}, index.SECRET_KEY, algorithm="HS256")
+        client.cookies.set("platform_session",session)
 
     def test_course_crud_survives_application_restart(self):
         with TestClient(index.app) as client:
@@ -82,9 +96,8 @@ class PersistenceTests(unittest.TestCase):
         with patch.object(index, "UPLOAD_DIR", Path(self.temp.name)), TestClient(index.app) as client:
             self.login_admin(client)
             result = client.post("/api/admin/students/import", files={"file": ("students.xlsx", stream.getvalue(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")})
-            self.assertEqual(result.status_code, 200, result.text)
-            self.assertEqual(result.json()["count"], 1)
-            self.assertEqual(client.post("/api/auth/login", data={"email": "makeup@example.invalid", "phone": "0900000000"}).status_code, 200)
+            self.assertEqual(result.status_code, 409)
+            self.set_session(client)
             for action, status in [("checkin", "SIGNED_IN"), ("leave", "ON_LEAVE"), ("makeup", "MAKEUP_DONE")]:
                 response = client.post("/api/attendance/" + action, json={"course_id": 1, "reason": "測試請假"})
                 self.assertEqual(response.status_code, 200)
@@ -92,7 +105,7 @@ class PersistenceTests(unittest.TestCase):
                 student = next(s for s in data["students"] if s["email"] == "student@example.invalid")
                 self.assertEqual(data["attendances"][f"{student['id']}_1"]["status"], status)
         with patch.object(index, "UPLOAD_DIR", Path(self.temp.name)), TestClient(index.app) as client:
-            self.assertEqual(client.post("/api/auth/login", data={"email": "student@example.invalid", "phone": "0900000000"}).status_code, 200)
+            self.set_session(client)
             self.assertIn("測試學員", client.get("/dashboard").text)
 
     def test_unauthorized_writes_do_not_change_saved_data(self):
@@ -112,7 +125,7 @@ class PersistenceTests(unittest.TestCase):
 
     def test_student_token_cannot_be_used_as_an_admin_token(self):
         with TestClient(index.app) as client:
-            account = index.SEED_DATA["students"][0]
-            self.assertEqual(client.post("/api/auth/login", data={"email": account["email"], "phone": account["phone"]}).status_code, 200)
-            client.cookies.set("admin_token", client.cookies.get("token"))
+            self.set_session(client)
+            client.cookies.set("admin_token", "old-independent-login")
             self.assertEqual(client.post("/api/admin/courses", json={"title": "拒絕越權"}).status_code, 401)
+            self.assertEqual(client.post("/api/auth/login",data={"email":"local@test.invalid","phone":"0900"}).status_code,410)

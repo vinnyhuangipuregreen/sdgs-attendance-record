@@ -4,6 +4,7 @@ import csv
 import copy
 from starlette.concurrency import run_in_threadpool
 from api.storage import AttendanceStore, ConcurrentUpdate, DATABASE_NAME
+from api.sso import resolve_session, install_sso
 from pathlib import Path
 from datetime import datetime
 from typing import Optional
@@ -12,7 +13,6 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, File
 from fastapi.templating import Jinja2Templates
 import openpyxl
 
-import jwt
 from fastapi.staticfiles import StaticFiles
 
 app = FastAPI(title="BLIA佛光永續學院簽到系統 - iPure Green")
@@ -105,7 +105,15 @@ async def persistent_course_data(request: Request, call_next):
     except (RuntimeError, OSError):
         return JSONResponse(status_code=503, content={"error": "課程資料庫暫時無法連線，請稍後再試"})
     request.state.db = data
-    original = copy.deepcopy(data) if request.method in {"POST", "PUT", "PATCH", "DELETE"} else None
+    original = copy.deepcopy(data)
+    try:
+        await run_in_threadpool(resolve_session, request, data, SECRET_KEY)
+    except HTTPException as error:
+        return JSONResponse(status_code=error.status_code, content={"error": error.detail})
+    if request.url.path.startswith("/api/admin/students") and request.method in {"POST", "PUT", "PATCH", "DELETE"}:
+        if not get_current_admin(request):
+            return JSONResponse(status_code=401, content={"error": "未授權"})
+        return JSONResponse(status_code=409, content={"error": "帳號已統一管理，請至系統管理後台維護", "management_url": "https://sdgs-action-platform.vercel.app/#admin"})
     response = await call_next(request)
     if original is not None and response.status_code < 400 and data != original:
         try:
@@ -126,53 +134,30 @@ async def healthz():
 
 # --- 認證輔助函式 ---
 def get_current_student(request: Request):
-    token = request.cookies.get("token")
-    if not token:
-        return None
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
-        return next((s for s in request.state.db["students"] if s["id"] == payload["id"]), None)
-    except:
-        return None
+    return getattr(request.state, "sso_student", None)
+
 
 def get_current_admin(request: Request):
-    token = request.cookies.get("admin_token")
-    if not token:
-        return None
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
-        if payload.get("role") not in {"superadmin", "admin"}:
-            return None
-        admin = next((a for a in request.state.db["admins"] if a["id"] == payload.get("id") and a["email"] == payload.get("email")), None)
-        if admin and admin["status"] == "active":
-            return admin
-    except:
-        return None
-    return None
+    return getattr(request.state, "sso_admin", None)
 
 # ==========================================
 # 前台學員路由
 # ==========================================
 @app.get("/", response_class=HTMLResponse)
 async def login_page(request: Request):
-    token = request.cookies.get("token")
-    if token:
-        student = get_current_student(request)
-        if student:
-            return RedirectResponse(url="/dashboard", status_code=302)
-    return render_template("login.html", {}, request)
+    if get_current_student(request):
+        return RedirectResponse(url="/dashboard", status_code=302)
+    return RedirectResponse(url="/sso/login", status_code=302)
 
 @app.get("/logout")
 async def logout():
-    resp = RedirectResponse(url="/", status_code=302)
-    resp.delete_cookie(key="token", path="/")
-    return resp
+    return RedirectResponse(url="/sso/logout", status_code=302)
 
 @app.get("/dashboard", response_class=HTMLResponse)
 async def dashboard_page(request: Request):
     student = get_current_student(request)
     if not student:
-        return RedirectResponse(url="/", status_code=302)
+        return RedirectResponse(url="/sso/login", status_code=302)
     
     signed_count = sum(1 for k, v in request.state.db["attendances"].items() if k.startswith(f"{student['id']}_") and v.get("status") == "SIGNED_IN")
     leave_count = sum(1 for k, v in request.state.db["attendances"].items() if k.startswith(f"{student['id']}_") and v.get("status") == "ON_LEAVE")
@@ -203,22 +188,11 @@ async def dashboard_page(request: Request):
 
 @app.get("/api/auth/logout")
 async def student_logout():
-    resp = RedirectResponse(url="/", status_code=302)
-    resp.delete_cookie(key="token", path="/")
-    return resp
+    return RedirectResponse(url="/sso/logout", status_code=302)
 
 @app.post("/api/auth/login")
 async def api_login(request: Request, email: str = Form(...), phone: str = Form(...)):
-    clean_email = email.strip().lower()
-    clean_phone = phone.strip()
-    student = next((s for s in request.state.db["students"] if (s["email"].strip().lower() == clean_email or s.get("email_pathdemy", "").strip().lower() == clean_email) and s["phone"].strip() == clean_phone), None)
-    if not student:
-        return JSONResponse(status_code=401, content={"error": "查無此報名資料，請確認 Email 與電話！"})
-    
-    token = jwt.encode({"id": student["id"], "email": student["email"]}, SECRET_KEY, algorithm="HS256")
-    resp = JSONResponse(content={"success": True})
-    resp.set_cookie("token", token, httponly=True, max_age=86400*7, path="/")
-    return resp
+    return JSONResponse(status_code=410, content={"error": "請使用系統單一登入", "login_url": "/sso/login"})
 
 @app.post("/api/attendance/checkin")
 async def api_checkin(request: Request):
@@ -277,26 +251,15 @@ async def api_makeup(request: Request):
 async def admin_login_page(request: Request):
     if get_current_admin(request):
         return RedirectResponse(url="/admin", status_code=302)
-    return render_template("admin_login.html", {}, request)
+    return RedirectResponse(url="/sso/login?admin=true", status_code=302)
 
 @app.post("/api/admin/auth/login")
 async def admin_login(request: Request, email: str = Form(...), password: str = Form(...)):
-    admin = next((a for a in request.state.db["admins"] if a["email"].strip().lower() == email.strip().lower() and a["password"] == password.strip()), None)
-    if not admin:
-        return JSONResponse(status_code=401, content={"error": "管理者帳號或密碼錯誤！"})
-    if admin["status"] != "active":
-        return JSONResponse(status_code=403, content={"error": "此管理者帳號已被停用，請聯繫最高管理者！"})
-    
-    token = jwt.encode({"id": admin["id"], "role": admin["role"], "email": admin["email"]}, SECRET_KEY, algorithm="HS256")
-    resp = JSONResponse(content={"success": True})
-    resp.set_cookie("admin_token", token, httponly=True, max_age=86400*7, path="/")
-    return resp
+    return JSONResponse(status_code=410, content={"error": "請使用系統單一登入", "login_url": "/sso/login?admin=true"})
 
 @app.get("/api/admin/auth/logout")
 async def admin_logout():
-    resp = RedirectResponse(url="/admin/login", status_code=302)
-    resp.delete_cookie(key="admin_token", path="/")
-    return resp
+    return RedirectResponse(url="/sso/logout", status_code=302)
 
 @app.get("/admin", response_class=HTMLResponse)
 async def admin_page(request: Request):
@@ -306,7 +269,7 @@ async def admin_page(request: Request):
     return render_template(
         "admin.html",
         {
-            "admins": request.state.db["admins"],
+            "admins": [current_admin],
             "students": request.state.db["students"],
             "courses": request.state.db["courses"],
             "current_admin": current_admin
@@ -833,3 +796,4 @@ async def delete_course(course_id: int, request: Request):
     if not get_current_admin(request): raise HTTPException(status_code=401, detail="未授權")
     request.state.db["courses"] = [c for c in request.state.db["courses"] if c["id"] != course_id]
     return {"success": True}
+install_sso(app, SECRET_KEY, bool(os.getenv("VERCEL")))

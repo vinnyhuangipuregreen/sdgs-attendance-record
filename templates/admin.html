@@ -23,7 +23,7 @@
       </div>
       <div class="flex items-center gap-2">
         <button onclick="openChangePwdModal()" class="px-3.5 py-2 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-700 text-xs font-semibold rounded-xl transition">修改密碼</button>
-        <a href="/api/admin/auth/logout" class="px-3.5 py-2 bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 text-xs font-semibold rounded-xl transition">登出後台</a>
+        <a href="/sso/logout" class="px-3.5 py-2 bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 text-xs font-semibold rounded-xl transition">登出後台</a>
       </div>
     </header>
 
@@ -55,50 +55,9 @@
         
         <!-- 面板 1: 管理者帳號維護 -->
         <div id="panel-admins" class="bg-white p-6 rounded-2xl shadow-xs border border-gray-100 space-y-4">
-          <div class="flex justify-between items-center pb-3 border-b border-gray-100">
-            <h3 class="text-base font-bold text-gray-800 flex items-center gap-2">
-              <span>🛡️ 管理者帳號維護</span>
-              <span class="text-xs text-gray-400 font-normal">共 {{ admins|length }} 位</span>
-            </h3>
-            <button onclick="openAdminModal()" class="px-3.5 py-2 bg-[#15803D] hover:bg-[#166534] text-white text-xs font-semibold rounded-xl shadow-xs transition">
-              + 新增管理者
-            </button>
-          </div>
-          <div class="overflow-x-auto">
-            <table class="w-full text-left text-sm">
-              <thead class="bg-gray-50 text-gray-500 font-medium text-xs">
-                <tr>
-                  <th class="p-3">ID</th>
-                  <th class="p-3">帳號 Email</th>
-                  <th class="p-3">權限</th>
-                  <th class="p-3">狀態</th>
-                  <th class="p-3 text-right">操作</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-gray-100">
-                {% for a in admins %}
-                <tr class="hover:bg-gray-50/60 transition">
-                  <td class="p-3 text-xs text-gray-400 font-mono">{{ a.id }}</td>
-                  <td class="p-3 font-semibold text-gray-800">{{ a.email }}</td>
-                  <td class="p-3 text-xs"><span class="px-2 py-0.5 rounded bg-gray-100 text-gray-700 font-mono">{{ a.role }}</span></td>
-                  <td class="p-3 text-xs">
-                    {% if a.status == 'active' %}
-                      <span class="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">啟用中</span>
-                    {% else %}
-                      <span class="px-2 py-0.5 rounded bg-red-50 text-red-700 border border-red-200">停用</span>
-                    {% endif %}
-                  </td>
-                  <td class="p-3 text-right space-x-2">
-                    <button onclick="editAdmin({{ a.id }}, '{{ a.email }}', '{{ a.password }}', '{{ a.status }}', '{{ a.role }}')" class="text-xs text-sky-600 hover:underline">編輯</button>
-                    {% if a.email != 'service@ipuregreen.org' and a.role != 'superadmin' %}
-                    <button onclick="deleteAdmin({{ a.id }}, '{{ a.email }}')" class="text-xs text-red-600 hover:underline">刪除</button>
-                    {% endif %}
-                  </td>
-                </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
+          <h3 class="text-base font-bold">系統管理帳號與權限</h3>
+          <p class="text-sm text-gray-600">帳號與權限已集中至系統統一後台，課程模組共用相同登入。</p>
+          <a class="ds-button" href="https://sdgs-action-platform.vercel.app/#admin">前往統一後台維護帳號</a>
         </div>
 
         <!-- 面板 2: 學員名單維護 -->
@@ -108,25 +67,9 @@
               <span>👥 學員名單維護</span>
               <span class="text-xs text-gray-400 font-normal">共 {{ students|length }} 位學員</span>
             </h3>
-            <div class="flex items-center gap-2.5 flex-wrap">
-              <button type="button" onclick="openStudentModal()" class="px-3.5 py-2 bg-[#15803D] hover:bg-[#166534] text-white text-xs font-semibold rounded-xl shadow-xs transition">
-                + 新增學員
-              </button>
-
-              <!-- 匯入 Excel -->
-              <label class="px-3.5 py-2 bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 text-xs font-semibold rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer">
-                <span class="text-red-500 text-sm">📥</span>
-                <span>匯入 Excel</span>
-                <input type="file" id="studentExcelInput" accept=".xlsx, .xls" class="hidden" onchange="uploadStudentExcel(event)">
-              </label>
-
-              <!-- 下載範例 Excel -->
-              <a href="/api/admin/students/sample-excel" download="student_list_upload.xlsx" class="px-3.5 py-2 bg-blue-50 hover:bg-blue-100 border border-blue-200 text-[#15803D] text-xs font-semibold rounded-xl shadow-xs transition flex items-center gap-1.5">
-                <span>📥</span>
-                <span>下載範例Excel</span>
-              </a>
-            </div>
+            <a class="ds-button" href="https://sdgs-action-platform.vercel.app/#admin">至統一後台維護學員帳號</a>
           </div>
+          <p class="text-sm text-gray-600">顯示同步的系統學員與既有課程紀錄；登入及權限以系統統一名冊為準。</p>
 
           <div class="overflow-x-auto">
             <table class="w-full text-left text-sm">
@@ -149,8 +92,7 @@
                   <td class="p-3 text-blue-700 text-xs font-medium">{{ s.email_pathdemy or s.email }}</td>
                   <td class="p-3 text-gray-600 text-xs">{{ s.phone }}</td>
                   <td class="p-3 text-right space-x-2">
-                    <button onclick="editStudent({{ s.id }}, '{{ s.name }}', '{{ s.email }}', '{{ s.phone }}', '{{ s.email_pathdemy or s.email }}')" class="text-xs text-sky-600 hover:underline">編輯</button>
-                    <button onclick="deleteStudent({{ s.id }})" class="text-xs text-red-600 hover:underline">刪除</button>
+                    <a href="https://sdgs-action-platform.vercel.app/#admin" class="text-xs text-emerald-800 underline">統一維護</a>
                   </td>
                 </tr>
                 {% endfor %}
