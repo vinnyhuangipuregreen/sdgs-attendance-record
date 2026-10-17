@@ -98,6 +98,8 @@ async def initialize_database():
 
 @app.middleware("http")
 async def persistent_course_data(request: Request, call_next):
+    if request.url.path in {"/admin", "/admin/login"} and request.headers.get("x-platform-embedded") != "1":
+        return RedirectResponse("https://sdgs-action-platform.vercel.app/#admin-attendance", status_code=302)
     if request.url.path in {"/", "/healthz", "/sso/login", "/auth/sso/callback", "/sso/logout", "/logout"} or request.url.path.startswith("/static/"):
         return await call_next(request)
     try:
@@ -110,6 +112,9 @@ async def persistent_course_data(request: Request, call_next):
         await run_in_threadpool(resolve_session, request, data, SECRET_KEY)
     except HTTPException as error:
         return JSONResponse(status_code=error.status_code, content={"error": error.detail})
+    if request.headers.get("authorization", "").startswith("Bearer ") and (request.url.path.startswith("/admin") or request.url.path.startswith("/api/admin")):
+        if not get_current_admin(request):
+            return JSONResponse(status_code=403, content={"error": "需要管理員或講師權限"})
     if request.url.path.startswith("/api/admin/students") and request.method in {"POST", "PUT", "PATCH", "DELETE"}:
         if not get_current_admin(request):
             return JSONResponse(status_code=401, content={"error": "未授權"})

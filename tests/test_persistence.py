@@ -67,6 +67,7 @@ class PersistenceTests(unittest.TestCase):
 
     def login_admin(self, client):
         self.set_session(client, "test-admin")
+        client.headers["X-Platform-Embedded"] = "1"
         self.assertEqual(client.get("/admin").status_code, 200)
 
     def set_session(self, client, token="test-student"):

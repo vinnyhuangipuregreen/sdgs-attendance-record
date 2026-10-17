@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+{% set embedded = request.headers.get('x-platform-embedded') == '1' %}
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
@@ -17,19 +18,19 @@
       <div class="flex items-center gap-3">
         <div class="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-xl">🌱</div>
         <div>
-          <h1 class="text-lg sm:text-xl font-bold text-[#1F2937]">「BLIA佛光永續學院」後台管理系統</h1>
+          <h1 class="text-lg sm:text-xl font-bold text-[#1F2937]">課程簽到／請假／補課管理</h1>
           <p class="text-xs text-gray-400">登入管理者：{{ current_admin.email }} ({{ current_admin.role }})</p>
         </div>
       </div>
-      <div class="flex items-center gap-2">
+      {% if not embedded %}<div class="flex items-center gap-2">
         <button onclick="openChangePwdModal()" class="px-3.5 py-2 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-700 text-xs font-semibold rounded-xl transition">修改密碼</button>
         <a href="/sso/logout" class="px-3.5 py-2 bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 text-xs font-semibold rounded-xl transition">登出後台</a>
-      </div>
+      </div>{% endif %}
     </header>
 
     <div class="flex flex-col md:flex-row gap-6 items-start">
       <!-- 左側選單 -->
-      <aside class="w-full md:w-64 bg-white rounded-2xl shadow-xs border border-gray-100 p-4 shrink-0">
+      {% if not embedded %}<aside class="w-full md:w-64 bg-white rounded-2xl shadow-xs border border-gray-100 p-4 shrink-0">
         <h2 class="text-base font-bold text-gray-800 text-center pb-3 mb-3 border-b border-gray-100">管理選單</h2>
         <nav class="space-y-2">
           <button type="button" id="tab-btn-admins" onclick="switchTab('admins')" 
@@ -48,7 +49,7 @@
             <span class="text-xs text-gray-400">›</span>
           </button>
         </nav>
-      </aside>
+      </aside>{% endif %}
 
       <!-- 右側主內容面板 -->
       <main class="flex-1 w-full min-w-0 space-y-6">
@@ -307,9 +308,13 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
+      {% if embedded %}
+      switchTab('courses');
+      {% else %}
       let savedTab = 'admins';
       try { savedTab = localStorage.getItem('admin_active_tab') || 'admins'; } catch(e) {}
       switchTab(savedTab);
+      {% endif %}
     });
 
     // 1. 學員 Excel 匯入校驗

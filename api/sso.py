@@ -54,13 +54,17 @@ def link_student(data, profile):
 def resolve_session(request, data, secret):
     request.state.sso_student = None
     request.state.sso_admin = None
-    cookie = request.cookies.get("platform_session")
-    if not cookie:
-        return
-    try:
-        session = jwt.decode(cookie, secret, algorithms=["HS256"])
-    except jwt.InvalidTokenError:
-        return
+    authorization = request.headers.get("authorization", "")
+    if authorization.startswith("Bearer ") and (request.url.path.startswith("/admin") or request.url.path.startswith("/api/admin")):
+        session = {"access_token": authorization[7:]}
+    else:
+        cookie = request.cookies.get("platform_session")
+        if not cookie:
+            return
+        try:
+            session = jwt.decode(cookie, secret, algorithms=["HS256"])
+        except jwt.InvalidTokenError:
+            return
     try:
         profile = platform_request("/api/auth/me", session["access_token"])
     except HTTPException as error:

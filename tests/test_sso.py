@@ -67,6 +67,27 @@ class CourseSsoTests(unittest.TestCase):
         state=self.begin(True)
         self.assertEqual(self.client.get("/auth/sso/callback",params={"state":state,"code":"code"},follow_redirects=False).status_code,403)
 
+    def test_old_admin_entry_redirects_to_the_unified_course_console(self):
+        for path in ("/admin", "/admin/login"):
+            response = self.client.get(path, follow_redirects=False)
+            self.assertEqual(response.status_code, 302)
+            self.assertEqual(response.headers["location"], "https://sdgs-action-platform.vercel.app/#admin-attendance")
+
+    def test_embedded_course_tools_use_verified_staff_bearer_without_another_login(self):
+        headers = {"Authorization": "Bearer platform-token", "X-Platform-Embedded": "1"}
+        self.assertEqual(self.client.get("/admin", headers=headers).status_code, 403)
+        self.profile.update(account_type="staff", role="teacher")
+        response = self.client.get("/admin", headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn('aria-label="主要功能"', response.text)
+        self.assertNotIn("登出後台", response.text)
+        self.assertIn("switchTab('courses')", response.text)
+        for section in ("attendance", "leaves", "pathdemy"):
+            self.assertEqual(self.client.get(f"/admin/courses/1/{section}", headers=headers).status_code, 200)
+        self.assertEqual(self.client.get("/api/admin/courses/sample-excel", headers=headers).status_code, 200)
+        with patch("api.sso.platform_request", side_effect=HTTPException(401, "revoked")):
+            self.assertEqual(self.client.get("/admin", headers=headers).status_code, 403)
+
     def test_course_record_ids_are_preserved_and_shared_emails_do_not_merge_identities(self):
         data={"students":[{"id":9,"name":"Legacy","email":"student@test.invalid"}],"attendances":{"9_1":{"status":"SIGNED_IN"}}}
         self.assertEqual(link_student(data,self.profile)["id"],9)

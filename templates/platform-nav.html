@@ -1,3 +1,4 @@
+{% if request.headers.get('x-platform-embedded') != '1' %}
 <header class="platform-header"><div class="platform-header-inner"><a class="platform-brand" href="https://sdgs-action-platform.vercel.app/"><span class="brand-globe" aria-hidden="true">🌏</span><span><strong>BLIA SDGs 社會影響力系統</strong><small>實踐永續 × 連動分析 × 行動改變 × 共創未來</small></span></a></div>    <nav class="platform-nav" aria-label="主要功能">
       <div class="platform-nav-inner">
         <a href="https://sdgs-action-platform.vercel.app/#home"><span aria-hidden="true">⌂</span>首頁</a>
@@ -9,3 +10,4 @@
         <a href="https://sdgs-action-platform.vercel.app/#admin"><span aria-hidden="true">⚙</span>管理後台</a>
       </div>
     </nav></header>
+{% endif %}
