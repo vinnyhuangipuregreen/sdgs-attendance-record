@@ -72,7 +72,8 @@ def resolve_session(request, data, secret):
             return
         raise
     request.state.platform_token = session["access_token"]
-    request.state.sso_student = link_student(data, profile)
+    if profile["account_type"] == "student":
+        request.state.sso_student = link_student(data, profile)
     if profile["account_type"] == "staff" and profile["role"] in ("admin", "teacher"):
         request.state.sso_admin = {**profile, "role": "admin", "platform_role": profile["role"], "status": "active"}
         course_list_only = request.url.path == "/admin" and request.headers.get("x-platform-embedded") == "1"
@@ -105,6 +106,8 @@ def install_sso(app, secret, secure):
             "client_id": "attendance", "redirect_uri": CALLBACK, "code": code, "code_verifier": pending["verifier"]})
         if pending["admin"] and result["user"]["account_type"] != "staff":
             raise HTTPException(403, "此帳號沒有課程管理權限")
+        if not pending["admin"] and result["user"]["account_type"] != "student":
+            raise HTTPException(403, "課程登錄請使用學員帳號登入")
         response = RedirectResponse("/admin" if pending["admin"] else "/dashboard", status_code=302)
         session = jwt.encode({"access_token": result["access_token"], "exp": int(time.time()) + 86400 * 7}, secret, algorithm="HS256")
         response.set_cookie("platform_session", session, max_age=86400*7, httponly=True, secure=secure, samesite="lax")

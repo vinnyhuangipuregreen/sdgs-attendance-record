@@ -67,6 +67,15 @@ class CourseSsoTests(unittest.TestCase):
         state=self.begin(True)
         self.assertEqual(self.client.get("/auth/sso/callback",params={"state":state,"code":"code"},follow_redirects=False).status_code,403)
 
+    def test_staff_accounts_cannot_use_the_student_course_entry(self):
+        self.profile.update(account_type="staff",role="admin")
+        state = self.begin()
+        self.assertEqual(self.client.get("/auth/sso/callback",params={"state":state,"code":"code"},follow_redirects=False).status_code,403)
+        state = self.begin(True)
+        self.assertEqual(self.client.get("/auth/sso/callback",params={"state":state,"code":"code"},follow_redirects=False).status_code,302)
+        response = self.client.get("/dashboard",follow_redirects=False)
+        self.assertEqual(response.headers["location"],"/sso/login")
+
     def test_old_admin_entry_redirects_to_the_unified_course_console(self):
         for path in ("/admin", "/admin/login"):
             response = self.client.get(path, follow_redirects=False)
