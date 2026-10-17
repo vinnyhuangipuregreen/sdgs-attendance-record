@@ -145,8 +145,6 @@ def get_current_admin(request: Request):
 # ==========================================
 @app.get("/", response_class=HTMLResponse)
 async def login_page(request: Request):
-    if get_current_student(request):
-        return RedirectResponse(url="/dashboard", status_code=302)
     return RedirectResponse(url="/sso/login", status_code=302)
 
 @app.get("/logout")
