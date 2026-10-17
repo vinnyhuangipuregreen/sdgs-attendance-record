@@ -98,7 +98,7 @@ async def initialize_database():
 
 @app.middleware("http")
 async def persistent_course_data(request: Request, call_next):
-    if request.url.path == "/healthz" or request.url.path.startswith("/static/"):
+    if request.url.path in {"/", "/healthz", "/sso/login", "/auth/sso/callback", "/sso/logout", "/logout"} or request.url.path.startswith("/static/"):
         return await call_next(request)
     try:
         version, data = await run_in_threadpool(store.load)

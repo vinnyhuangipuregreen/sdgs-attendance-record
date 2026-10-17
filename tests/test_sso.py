@@ -51,6 +51,15 @@ class CourseSsoTests(unittest.TestCase):
     def test_csrf_state_tampering_and_expired_session_are_rejected(self):
         self.begin()
         self.assertEqual(self.client.get("/auth/sso/callback",params={"state":"wrong","code":"code"}).status_code,400)
+
+    def test_login_redirects_do_not_load_course_data_or_validate_old_sessions(self):
+        with patch.object(index.store, "load", side_effect=AssertionError("unnecessary course query")), \
+             patch("api.index.resolve_session", side_effect=AssertionError("unnecessary session query")):
+            self.assertEqual(self.client.get("/", follow_redirects=False).status_code, 302)
+            state = self.begin()
+            response = self.client.get("/auth/sso/callback", params={"state": state, "code": "code"}, follow_redirects=False)
+            self.assertEqual(response.status_code, 302)
+            self.assertEqual(response.headers["location"], "/dashboard")
         self.client.cookies.clear()
         self.assertEqual(self.client.get("/auth/sso/callback",params={"state":"wrong","code":"code"}).status_code,400)
 
