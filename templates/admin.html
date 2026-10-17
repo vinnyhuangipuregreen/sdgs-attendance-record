@@ -5,8 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>「BLIA佛光永續學院」後台管理系統</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/static/css/design-system.css?v=20261017_attendance">
+  <link rel="stylesheet" href="/static/css/attendance.css?v=20261017_attendance">
 </head>
-<body class="min-h-screen bg-[#F4F6F8] p-4 sm:p-6 text-gray-800">
+<body class="sdgs-shell attendance-platform min-h-screen bg-[#F8FAFC] p-4 sm:p-6 text-gray-800">
+  {% include "platform-nav.html" %}
   <div class="max-w-7xl mx-auto space-y-6">
 
     <!-- 頂部資訊列 -->
@@ -118,7 +121,7 @@
               </label>
 
               <!-- 下載範例 Excel -->
-              <a href="/api/admin/students/sample-excel" download="student_list_upload.xlsx" class="px-3.5 py-2 bg-blue-50 hover:bg-blue-100 border border-blue-200 text-[#1565C0] text-xs font-semibold rounded-xl shadow-xs transition flex items-center gap-1.5">
+              <a href="/api/admin/students/sample-excel" download="student_list_upload.xlsx" class="px-3.5 py-2 bg-blue-50 hover:bg-blue-100 border border-blue-200 text-[#15803D] text-xs font-semibold rounded-xl shadow-xs transition flex items-center gap-1.5">
                 <span>📥</span>
                 <span>下載範例Excel</span>
               </a>
@@ -176,7 +179,7 @@
               </label>
 
               <!-- 2. 旁邊增加「📥 下載範例Excel」按鈕 -->
-              <a href="/api/admin/courses/sample-excel" download="course_list_upload.xlsx" class="px-3.5 py-2 bg-blue-50 hover:bg-blue-100 border border-blue-200 text-[#1565C0] text-xs font-semibold rounded-xl shadow-xs transition flex items-center gap-1.5">
+              <a href="/api/admin/courses/sample-excel" download="course_list_upload.xlsx" class="px-3.5 py-2 bg-blue-50 hover:bg-blue-100 border border-blue-200 text-[#15803D] text-xs font-semibold rounded-xl shadow-xs transition flex items-center gap-1.5">
                 <span>📥</span>
                 <span>下載範例Excel</span>
               </a>
@@ -206,7 +209,7 @@
                   <td class="p-3 text-right space-x-1.5">
                     <a href="/admin/courses/{{ c.id }}/attendance" class="px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-lg text-xs font-medium hover:bg-emerald-100">簽到</a>
                     <a href="/admin/courses/{{ c.id }}/leaves" class="px-2.5 py-1 bg-amber-50 text-amber-700 rounded-lg text-xs font-medium hover:bg-amber-100">請假</a>
-                    <a href="/admin/courses/{{ c.id }}/pathdemy" class="px-2.5 py-1 bg-blue-50 text-[#1565C0] rounded-lg text-xs font-medium hover:bg-blue-100">補課</a>
+                    <a href="/admin/courses/{{ c.id }}/pathdemy" class="px-2.5 py-1 bg-blue-50 text-[#15803D] rounded-lg text-xs font-medium hover:bg-blue-100">補課</a>
                     <button onclick="editCourse({{ c.id }}, '{{ c.title }}', '{{ c.course_date }}', '{{ c.course_time }}', '{{ c.open_time }}')" class="text-xs text-gray-500 hover:underline ml-1">修改</button>
                     <button onclick="deleteCourse({{ c.id }})" class="text-xs text-red-600 hover:underline">刪除</button>
                   </td>

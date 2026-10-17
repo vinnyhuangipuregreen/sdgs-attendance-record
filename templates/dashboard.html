@@ -11,8 +11,11 @@
       font-family: 'Noto Sans TC', system-ui, -apple-system, sans-serif;
     }
   </style>
+  <link rel="stylesheet" href="/static/css/design-system.css?v=20261017_attendance">
+  <link rel="stylesheet" href="/static/css/attendance.css?v=20261017_attendance">
 </head>
-<body class="min-h-screen bg-[#F4F6F8] p-4 sm:p-6 text-gray-800">
+<body class="sdgs-shell attendance-platform min-h-screen bg-[#F8FAFC] p-4 sm:p-6 text-gray-800">
+  {% include "platform-nav.html" %}
   <div class="max-w-4xl mx-auto space-y-6">
 
     <!-- 頂部資訊列 -->
@@ -121,7 +124,7 @@
             {% if course.status == 'MAKEUP_DONE' %}
               <button disabled class="w-full py-2.5 bg-purple-50 text-purple-700 border border-purple-200 text-sm font-semibold rounded-xl cursor-not-allowed">✓ 已補課</button>
             {% elif course.status == 'ON_LEAVE' %}
-              <button onclick="doMakeup({{ course.id }})" class="w-full py-2.5 bg-[#1565C0] hover:bg-[#0D47A1] text-white text-sm font-semibold rounded-xl transition shadow-xs cursor-pointer">補課登錄</button>
+              <button onclick="doMakeup({{ course.id }})" class="w-full py-2.5 bg-[#15803D] hover:bg-[#166534] text-white text-sm font-semibold rounded-xl transition shadow-xs cursor-pointer">補課登錄</button>
             {% else %}
               <button disabled class="w-full py-2.5 bg-gray-100 text-gray-400 text-sm font-medium rounded-xl cursor-not-allowed">補課登錄</button>
             {% endif %}

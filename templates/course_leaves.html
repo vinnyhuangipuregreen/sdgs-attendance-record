@@ -4,8 +4,11 @@
   <meta charset="UTF-8">
   <title>學員請假狀況 - {{ course.title }}</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/static/css/design-system.css?v=20261017_attendance">
+  <link rel="stylesheet" href="/static/css/attendance.css?v=20261017_attendance">
 </head>
-<body class="min-h-screen bg-[#F4F6F8] p-4 sm:p-6 text-gray-800">
+<body class="sdgs-shell attendance-platform min-h-screen bg-[#F8FAFC] p-4 sm:p-6 text-gray-800">
+  {% include "platform-nav.html" %}
   <div class="max-w-7xl mx-auto space-y-6">
 
     <!-- 頂部卡片 -->

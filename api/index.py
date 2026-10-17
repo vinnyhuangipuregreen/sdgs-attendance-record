@@ -1,6 +1,9 @@
 import os
 import io
 import csv
+import copy
+from starlette.concurrency import run_in_threadpool
+from api.storage import AttendanceStore, ConcurrentUpdate, DATABASE_NAME
 from pathlib import Path
 from datetime import datetime
 from typing import Optional
@@ -9,20 +12,8 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, File
 from fastapi.templating import Jinja2Templates
 import openpyxl
 
-# JWT 認證支援（若環境缺少 pyjwt 則自動降級相容）
-try:
-    import jwt
-except ImportError:
-    class MockJWT:
-        @staticmethod
-        def encode(payload, key, algorithm="HS256"):
-            import json, base64
-            return base64.b64encode(json.dumps(payload).encode()).decode()
-        @staticmethod
-        def decode(token, key, algorithms=["HS256"]):
-            import json, base64
-            return json.loads(base64.b64decode(token.encode()).decode())
-    jwt = MockJWT()
+import jwt
+from fastapi.staticfiles import StaticFiles
 
 app = FastAPI(title="BLIA佛光永續學院簽到系統 - iPure Green")
 
@@ -30,6 +21,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 TEMPLATES_DIR = BASE_DIR / "templates"
 UPLOAD_DIR = BASE_DIR / "uploadfile"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
+app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 
 # 跨版本相容模板渲染函式 (同時相容新舊版 Starlette / FastAPI，徹底解決 500 Internal Server Error)
 def render_template(template_name: str, context: dict, request: Request, status_code: int = 200):
@@ -42,10 +34,14 @@ def render_template(template_name: str, context: dict, request: Request, status_
         # 標準與舊版 Starlette (以 name, context 作為位置參數)
         return templates.TemplateResponse(template_name, ctx, status_code=status_code)
 
-SECRET_KEY = os.getenv("SECRET_KEY", "ipuregreen-blia-secret-key-2026")
+SECRET_KEY = os.getenv("SECRET_KEY", "")
+if not SECRET_KEY:
+    if os.getenv("VERCEL"):
+        raise RuntimeError("請設定課程登錄的 SECRET_KEY")
+    SECRET_KEY = "local-attendance-development-only"
 
 # 資料庫模型
-db = {
+SEED_DATA = {
     "admins": [
         {
             "id": 1,
@@ -92,6 +88,42 @@ db = {
     }
 }
 
+store = None
+
+@app.on_event("startup")
+async def initialize_database():
+    global store
+    store = AttendanceStore()
+    await run_in_threadpool(store.initialize, SEED_DATA)
+
+@app.middleware("http")
+async def persistent_course_data(request: Request, call_next):
+    if request.url.path == "/healthz" or request.url.path.startswith("/static/"):
+        return await call_next(request)
+    try:
+        version, data = await run_in_threadpool(store.load)
+    except (RuntimeError, OSError):
+        return JSONResponse(status_code=503, content={"error": "課程資料庫暫時無法連線，請稍後再試"})
+    request.state.db = data
+    original = copy.deepcopy(data) if request.method in {"POST", "PUT", "PATCH", "DELETE"} else None
+    response = await call_next(request)
+    if original is not None and response.status_code < 400 and data != original:
+        try:
+            await run_in_threadpool(store.save, version, data)
+        except ConcurrentUpdate as error:
+            return JSONResponse(status_code=409, content={"error": str(error)})
+        except (RuntimeError, OSError):
+            return JSONResponse(status_code=503, content={"error": "資料尚未儲存成功，請稍後重新送出"})
+    return response
+
+@app.get("/healthz")
+async def healthz():
+    try:
+        await run_in_threadpool(store.load)
+    except (RuntimeError, OSError):
+        return JSONResponse(status_code=503, content={"status": "error", "database": DATABASE_NAME})
+    return {"status": "ok", "database": DATABASE_NAME, "storage": "turso" if store.url else "sqlite"}
+
 # --- 認證輔助函式 ---
 def get_current_student(request: Request):
     token = request.cookies.get("token")
@@ -99,7 +131,7 @@ def get_current_student(request: Request):
         return None
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
-        return next((s for s in db["students"] if s["id"] == payload["id"]), None)
+        return next((s for s in request.state.db["students"] if s["id"] == payload["id"]), None)
     except:
         return None
 
@@ -109,7 +141,7 @@ def get_current_admin(request: Request):
         return None
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
-        admin = next((a for a in db["admins"] if a["id"] == payload.get("id")), None)
+        admin = next((a for a in request.state.db["admins"] if a["id"] == payload.get("id")), None)
         if admin and admin["status"] == "active":
             return admin
     except:
@@ -140,14 +172,14 @@ async def dashboard_page(request: Request):
     if not student:
         return RedirectResponse(url="/", status_code=302)
     
-    signed_count = sum(1 for k, v in db["attendances"].items() if k.startswith(f"{student['id']}_") and v.get("status") == "SIGNED_IN")
-    leave_count = sum(1 for k, v in db["attendances"].items() if k.startswith(f"{student['id']}_") and v.get("status") == "ON_LEAVE")
-    makeup_count = sum(1 for k, v in db["attendances"].items() if k.startswith(f"{student['id']}_") and v.get("status") == "MAKEUP_DONE")
-    absent_count = sum(1 for k, v in db["attendances"].items() if k.startswith(f"{student['id']}_") and v.get("status") == "ABSENT")
+    signed_count = sum(1 for k, v in request.state.db["attendances"].items() if k.startswith(f"{student['id']}_") and v.get("status") == "SIGNED_IN")
+    leave_count = sum(1 for k, v in request.state.db["attendances"].items() if k.startswith(f"{student['id']}_") and v.get("status") == "ON_LEAVE")
+    makeup_count = sum(1 for k, v in request.state.db["attendances"].items() if k.startswith(f"{student['id']}_") and v.get("status") == "MAKEUP_DONE")
+    absent_count = sum(1 for k, v in request.state.db["attendances"].items() if k.startswith(f"{student['id']}_") and v.get("status") == "ABSENT")
 
     courses_view = []
-    for c in db["courses"]:
-        record = db["attendances"].get(f"{student['id']}_{c['id']}")
+    for c in request.state.db["courses"]:
+        record = request.state.db["attendances"].get(f"{student['id']}_{c['id']}")
         status = record["status"] if record else "PENDING"
         makeup_date = record.get("makeup_date", "") if record else ""
         courses_view.append({**c, "status": status, "makeup_date": makeup_date})
@@ -174,10 +206,10 @@ async def student_logout():
     return resp
 
 @app.post("/api/auth/login")
-async def api_login(email: str = Form(...), phone: str = Form(...)):
+async def api_login(request: Request, email: str = Form(...), phone: str = Form(...)):
     clean_email = email.strip().lower()
     clean_phone = phone.strip()
-    student = next((s for s in db["students"] if (s["email"].strip().lower() == clean_email or s.get("email_pathdemy", "").strip().lower() == clean_email) and s["phone"].strip() == clean_phone), None)
+    student = next((s for s in request.state.db["students"] if (s["email"].strip().lower() == clean_email or s.get("email_pathdemy", "").strip().lower() == clean_email) and s["phone"].strip() == clean_phone), None)
     if not student:
         return JSONResponse(status_code=401, content={"error": "查無此報名資料，請確認 Email 與電話！"})
     
@@ -194,7 +226,7 @@ async def api_checkin(request: Request):
     data = await request.json()
     course_id = data.get("course_id")
     key = f"{student['id']}_{course_id}"
-    db["attendances"][key] = {
+    request.state.db["attendances"][key] = {
         "status": "SIGNED_IN",
         "signed_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     }
@@ -209,7 +241,7 @@ async def api_leave(request: Request):
     course_id = data.get("course_id")
     reason = data.get("reason", "")
     key = f"{student['id']}_{course_id}"
-    db["attendances"][key] = {
+    request.state.db["attendances"][key] = {
         "status": "ON_LEAVE",
         "reason": reason,
         "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -227,7 +259,7 @@ async def api_makeup(request: Request):
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     platform_email = student.get("email_pathdemy") or student["email"]
     
-    db["attendances"][key] = {
+    request.state.db["attendances"][key] = {
         "status": "MAKEUP_DONE",
         "makeup_date": now_str,
         "platform_email": platform_email,
@@ -246,8 +278,8 @@ async def admin_login_page(request: Request):
     return render_template("admin_login.html", {}, request)
 
 @app.post("/api/admin/auth/login")
-async def admin_login(email: str = Form(...), password: str = Form(...)):
-    admin = next((a for a in db["admins"] if a["email"].strip().lower() == email.strip().lower() and a["password"] == password.strip()), None)
+async def admin_login(request: Request, email: str = Form(...), password: str = Form(...)):
+    admin = next((a for a in request.state.db["admins"] if a["email"].strip().lower() == email.strip().lower() and a["password"] == password.strip()), None)
     if not admin:
         return JSONResponse(status_code=401, content={"error": "管理者帳號或密碼錯誤！"})
     if admin["status"] != "active":
@@ -272,9 +304,9 @@ async def admin_page(request: Request):
     return render_template(
         "admin.html",
         {
-            "admins": db["admins"],
-            "students": db["students"],
-            "courses": db["courses"],
+            "admins": request.state.db["admins"],
+            "students": request.state.db["students"],
+            "courses": request.state.db["courses"],
             "current_admin": current_admin
         },
         request
@@ -371,14 +403,14 @@ async def import_students(request: Request, file: UploadFile = File(...)):
         if not name or not email: continue
         if not email_pathdemy: email_pathdemy = email
 
-        existing = next((s for s in db["students"] if s["email"].lower() == email.lower()), None)
+        existing = next((s for s in request.state.db["students"] if s["email"].lower() == email.lower()), None)
         if existing:
             existing["name"] = name
             existing["email_pathdemy"] = email_pathdemy
             existing["phone"] = phone
         else:
-            new_id = max([s["id"] for s in db["students"]], default=0) + 1
-            db["students"].append({
+            new_id = max([s["id"] for s in request.state.db["students"]], default=0) + 1
+            request.state.db["students"].append({
                 "id": new_id, "name": name, "email": email, 
                 "email_pathdemy": email_pathdemy, "phone": phone
             })
@@ -387,7 +419,7 @@ async def import_students(request: Request, file: UploadFile = File(...)):
     return {
         "success": True, 
         "count": imported_count,
-        "students": db["students"]
+        "students": request.state.db["students"]
     }
 
 # ==========================================
@@ -485,14 +517,14 @@ async def import_courses(request: Request, file: UploadFile = File(...)):
         if not title: continue
         cdate = raw_date.replace("-", "/").split(" ")[0]
 
-        existing = next((c for c in db["courses"] if c["title"].strip() == title), None)
+        existing = next((c for c in request.state.db["courses"] if c["title"].strip() == title), None)
         if existing:
             existing["course_date"] = cdate
             existing["course_time"] = ctime
             existing["open_time"] = otime
         else:
-            new_id = max([c["id"] for c in db["courses"]], default=0) + 1
-            db["courses"].append({
+            new_id = max([c["id"] for c in request.state.db["courses"]], default=0) + 1
+            request.state.db["courses"].append({
                 "id": new_id, 
                 "title": title, 
                 "course_date": cdate, 
@@ -504,7 +536,7 @@ async def import_courses(request: Request, file: UploadFile = File(...)):
     return {
         "success": True, 
         "count": imported_count,
-        "courses": db["courses"]
+        "courses": request.state.db["courses"]
     }
 
 # ==========================================
@@ -539,13 +571,13 @@ async def download_pathdemy_sample_excel(request: Request, course_id: Optional[i
 @app.get("/admin/courses/{course_id}/pathdemy", response_class=HTMLResponse)
 async def course_pathdemy_page(course_id: int, request: Request):
     if not get_current_admin(request): return RedirectResponse(url="/admin/login", status_code=302)
-    course = next((c for c in db["courses"] if c["id"] == course_id), None)
+    course = next((c for c in request.state.db["courses"] if c["id"] == course_id), None)
     if not course: return RedirectResponse(url="/admin", status_code=302)
     
     makeup_records = []
-    for s in db["students"]:
+    for s in request.state.db["students"]:
         key = f"{s['id']}_{course['id']}"
-        rec = db["attendances"].get(key)
+        rec = request.state.db["attendances"].get(key)
         if rec and rec.get("status") == "MAKEUP_DONE":
             makeup_records.append({
                 "id": s["id"], 
@@ -563,7 +595,7 @@ async def course_pathdemy_page(course_id: int, request: Request):
             "course": course,
             "records": makeup_records,
             "total_count": len(makeup_records),
-            "all_students": db["students"]
+            "all_students": request.state.db["students"]
         },
         request
     )
@@ -639,7 +671,7 @@ async def import_pathdemy_excel(course_id: int, request: Request, file: UploadFi
 
         # 透過 [Email(補課平台)] 比對學員名單
         matched = next((
-            s for s in db["students"] 
+            s for s in request.state.db["students"]
             if raw_email in [
                 (s.get("email_pathdemy") or "").strip().lower(), 
                 s["email"].strip().lower()
@@ -648,7 +680,7 @@ async def import_pathdemy_excel(course_id: int, request: Request, file: UploadFi
 
         if matched:
             # 關鍵：僅針對當前所選的 course_id 補上 [學員姓名]、[Email]、[聯絡電話]
-            db["attendances"][f"{matched['id']}_{course_id}"] = {
+            request.state.db["attendances"][f"{matched['id']}_{course_id}"] = {
                 "status": "MAKEUP_DONE",
                 "makeup_date": raw_date,
                 "platform_email": raw_email,
@@ -665,15 +697,15 @@ async def import_pathdemy_excel(course_id: int, request: Request, file: UploadFi
         "success": True, 
         "count": count,
         "course_id": course_id,
-        "attendances": db["attendances"],
-        "courses": db["courses"]
+        "attendances": request.state.db["attendances"],
+        "courses": request.state.db["courses"]
     }
 
 @app.delete("/api/admin/courses/{course_id}/pathdemy/{student_id}")
 async def cancel_makeup(course_id: int, student_id: int, request: Request):
     if not get_current_admin(request): raise HTTPException(status_code=401, detail="未授權")
     key = f"{student_id}_{course_id}"
-    if key in db["attendances"]: del db["attendances"][key]
+    if key in request.state.db["attendances"]: del request.state.db["attendances"][key]
     return {"success": True}
 
 # ==========================================
@@ -682,14 +714,14 @@ async def cancel_makeup(course_id: int, student_id: int, request: Request):
 @app.get("/admin/courses/{course_id}/attendance", response_class=HTMLResponse)
 async def course_attendance_page(course_id: int, request: Request):
     if not get_current_admin(request): return RedirectResponse(url="/admin/login", status_code=302)
-    course = next((c for c in db["courses"] if c["id"] == course_id), None)
+    course = next((c for c in request.state.db["courses"] if c["id"] == course_id), None)
     if not course: return RedirectResponse(url="/admin", status_code=302)
     
     student_records = []
-    signed_count = sum(1 for s in db["students"] if db["attendances"].get(f"{s['id']}_{course['id']}", {}).get("status") == "SIGNED_IN")
-    for s in db["students"]:
+    signed_count = sum(1 for s in request.state.db["students"] if request.state.db["attendances"].get(f"{s['id']}_{course['id']}", {}).get("status") == "SIGNED_IN")
+    for s in request.state.db["students"]:
         key = f"{s['id']}_{course['id']}"
-        rec = db["attendances"].get(key)
+        rec = request.state.db["attendances"].get(key)
         status = rec["status"] if rec else "PENDING"
         student_records.append({
             "id": s["id"], "name": s["name"], "email": s["email"],
@@ -711,13 +743,13 @@ async def course_attendance_page(course_id: int, request: Request):
 @app.get("/admin/courses/{course_id}/leaves", response_class=HTMLResponse)
 async def course_leaves_page(course_id: int, request: Request):
     if not get_current_admin(request): return RedirectResponse(url="/admin/login", status_code=302)
-    course = next((c for c in db["courses"] if c["id"] == course_id), None)
+    course = next((c for c in request.state.db["courses"] if c["id"] == course_id), None)
     if not course: return RedirectResponse(url="/admin", status_code=302)
     
     leave_records = []
-    for s in db["students"]:
+    for s in request.state.db["students"]:
         key = f"{s['id']}_{course['id']}"
-        rec = db["attendances"].get(key)
+        rec = request.state.db["attendances"].get(key)
         if rec and rec.get("status") == "ON_LEAVE":
             leave_records.append({
                 "student_id": s["id"], "name": s["name"], "email": s["email"],
@@ -738,7 +770,7 @@ async def course_leaves_page(course_id: int, request: Request):
 async def cancel_leave(course_id: int, student_id: int, request: Request):
     if not get_current_admin(request): raise HTTPException(status_code=401, detail="未授權")
     key = f"{student_id}_{course_id}"
-    if key in db["attendances"]: del db["attendances"][key]
+    if key in request.state.db["attendances"]: del request.state.db["attendances"][key]
     return {"success": True}
 
 # 學員與課程 CRUD
@@ -746,18 +778,18 @@ async def cancel_leave(course_id: int, student_id: int, request: Request):
 async def add_student(request: Request):
     if not get_current_admin(request): raise HTTPException(status_code=401, detail="未授權")
     data = await request.json()
-    new_id = max([s["id"] for s in db["students"]], default=0) + 1
+    new_id = max([s["id"] for s in request.state.db["students"]], default=0) + 1
     email = data.get("email", "").strip()
     email_pathdemy = data.get("email_pathdemy", "").strip() or email
     new_student = {"id": new_id, "name": data.get("name", "").strip(), "email": email, "email_pathdemy": email_pathdemy, "phone": data.get("phone", "").strip()}
-    db["students"].append(new_student)
+    request.state.db["students"].append(new_student)
     return {"success": True, "student": new_student}
 
 @app.put("/api/admin/students/{student_id}")
 async def update_student(student_id: int, request: Request):
     if not get_current_admin(request): raise HTTPException(status_code=401, detail="未授權")
     data = await request.json()
-    for s in db["students"]:
+    for s in request.state.db["students"]:
         if s["id"] == student_id:
             s["name"] = data.get("name", s["name"]).strip()
             s["email"] = data.get("email", s["email"]).strip()
@@ -769,23 +801,23 @@ async def update_student(student_id: int, request: Request):
 @app.delete("/api/admin/students/{student_id}")
 async def delete_student(student_id: int, request: Request):
     if not get_current_admin(request): raise HTTPException(status_code=401, detail="未授權")
-    db["students"] = [s for s in db["students"] if s["id"] != student_id]
+    request.state.db["students"] = [s for s in request.state.db["students"] if s["id"] != student_id]
     return {"success": True}
 
 @app.post("/api/admin/courses")
 async def add_course(request: Request):
     if not get_current_admin(request): raise HTTPException(status_code=401, detail="未授權")
     data = await request.json()
-    new_id = max([c["id"] for c in db["courses"]], default=0) + 1
+    new_id = max([c["id"] for c in request.state.db["courses"]], default=0) + 1
     new_c = {"id": new_id, "title": data.get("title", "").strip(), "course_date": data.get("course_date", "").strip(), "course_time": data.get("course_time", "").strip(), "open_time": data.get("open_time", "").strip()}
-    db["courses"].append(new_c)
+    request.state.db["courses"].append(new_c)
     return {"success": True, "course": new_c}
 
 @app.put("/api/admin/courses/{course_id}")
 async def update_course(course_id: int, request: Request):
     if not get_current_admin(request): raise HTTPException(status_code=401, detail="未授權")
     data = await request.json()
-    for c in db["courses"]:
+    for c in request.state.db["courses"]:
         if c["id"] == course_id:
             c["title"] = data.get("title", c["title"]).strip()
             c["course_date"] = data.get("course_date", c["course_date"]).strip()
@@ -797,5 +829,5 @@ async def update_course(course_id: int, request: Request):
 @app.delete("/api/admin/courses/{course_id}")
 async def delete_course(course_id: int, request: Request):
     if not get_current_admin(request): raise HTTPException(status_code=401, detail="未授權")
-    db["courses"] = [c for c in db["courses"] if c["id"] != course_id]
+    request.state.db["courses"] = [c for c in request.state.db["courses"] if c["id"] != course_id]
     return {"success": True}

@@ -14,8 +14,11 @@
       font-family: 'Noto Sans TC', system-ui, -apple-system, sans-serif;
     }
   </style>
+  <link rel="stylesheet" href="/static/css/design-system.css?v=20261017_attendance">
+  <link rel="stylesheet" href="/static/css/attendance.css?v=20261017_attendance">
 </head>
-<body class="bg-[#F8FAFC] text-slate-800 min-h-screen p-4 sm:p-6 md:p-8">
+<body class="sdgs-shell attendance-platform bg-[#F8FAFC] text-slate-800 min-h-screen p-4 sm:p-6 md:p-8">
+  {% include "platform-nav.html" %}
 
   <div class="max-w-7xl mx-auto space-y-6">
 
@@ -94,7 +97,7 @@
           </label>
 
           <!-- 旁邊增加：📥 下載範例Excel 按鈕 -->
-          <a id="sampleDownloadBtn" href="/api/admin/pathdemy/sample-excel" download="pathdemy_list_upload.xlsx" class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-blue-50 hover:bg-blue-100 border border-blue-200 text-[#1565C0] text-sm font-semibold rounded-xl shadow-2xs transition-all cursor-pointer">
+          <a id="sampleDownloadBtn" href="/api/admin/pathdemy/sample-excel" download="pathdemy_list_upload.xlsx" class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-blue-50 hover:bg-blue-100 border border-blue-200 text-[#15803D] text-sm font-semibold rounded-xl shadow-2xs transition-all cursor-pointer">
             <span>📥</span>
             <span>下載範例Excel</span>
           </a>
