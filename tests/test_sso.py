@@ -17,7 +17,7 @@ class CourseSsoTests(unittest.TestCase):
         self.env.start()
         self.profile={"id":7,"name":"Student","email":"student@test.invalid","phone":"0900","account_type":"student","role":"student"}
         self.remote=patch("api.sso.platform_request",side_effect=self.response)
-        self.remote.start()
+        self.remote_mock = self.remote.start()
         self.client_context=TestClient(index.app)
         self.client=self.client_context.__enter__()
 
@@ -77,7 +77,9 @@ class CourseSsoTests(unittest.TestCase):
         headers = {"Authorization": "Bearer platform-token", "X-Platform-Embedded": "1"}
         self.assertEqual(self.client.get("/admin", headers=headers).status_code, 403)
         self.profile.update(account_type="staff", role="teacher")
+        self.remote_mock.reset_mock()
         response = self.client.get("/admin", headers=headers)
+        self.assertEqual([call.args[0] for call in self.remote_mock.call_args_list], ["/api/auth/me"])
         self.assertEqual(response.status_code, 200)
         self.assertNotIn('aria-label="主要功能"', response.text)
         self.assertNotIn("登出後台", response.text)

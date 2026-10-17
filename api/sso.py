@@ -75,7 +75,8 @@ def resolve_session(request, data, secret):
     request.state.sso_student = link_student(data, profile)
     if profile["account_type"] == "staff" and profile["role"] in ("admin", "teacher"):
         request.state.sso_admin = {**profile, "role": "admin", "platform_role": profile["role"], "status": "active"}
-        if request.url.path.startswith("/admin") or request.url.path.startswith("/api/admin"):
+        course_list_only = request.url.path == "/admin" and request.headers.get("x-platform-embedded") == "1"
+        if not course_list_only and (request.url.path.startswith("/admin") or request.url.path.startswith("/api/admin")):
             for student in platform_request("/api/auth/sso/roster", session["access_token"]):
                 link_student(data, student)
 
