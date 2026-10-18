@@ -13,13 +13,13 @@
       font-family: 'Noto Sans TC', system-ui, -apple-system, sans-serif;
     }
   </style>
-  <link rel="stylesheet" href="/static/css/design-system.css?v=20261017_attendance">
-  <link rel="stylesheet" href="/static/css/attendance.css?v=20261017_attendance">
+  <link rel="stylesheet" href="/static/css/design-system.css?v=20261019_ui1280">
+  <link rel="stylesheet" href="/static/css/attendance.css?v=20261019_ui1280">
 </head>
 <body class="sdgs-shell attendance-platform bg-[#F8FAFC] text-slate-800 min-h-screen p-4 sm:p-6 md:p-8">
   {% include "platform-nav.html" %}
 
-  <div class="max-w-7xl mx-auto space-y-6">
+  <div class="ds-container space-y-6">
 
     <!-- 頂部導覽與標題列卡片 (動態對應所選課程) -->
     <div class="bg-white rounded-2xl p-6 shadow-xs border border-gray-100 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -552,5 +552,6 @@
         .replace(/'/g, "&#039;");
     }
   </script>
+{% include "platform-footer.html" %}
 </body>
 </html>

@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>學員請假狀況 - {{ course.title }}</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="/static/css/design-system.css?v=20261017_attendance">
-  <link rel="stylesheet" href="/static/css/attendance.css?v=20261017_attendance">
+  <link rel="stylesheet" href="/static/css/design-system.css?v=20261019_ui1280">
+  <link rel="stylesheet" href="/static/css/attendance.css?v=20261019_ui1280">
 </head>
 <body class="sdgs-shell attendance-platform min-h-screen bg-[#F8FAFC] p-4 sm:p-6 text-gray-800">
   {% include "platform-nav.html" %}
-  <div class="max-w-7xl mx-auto space-y-6">
+  <div class="ds-container space-y-6">
 
     <!-- 頂部卡片 -->
     <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -193,5 +193,6 @@
       }
     }
   </script>
+{% include "platform-footer.html" %}
 </body>
 </html>

@@ -1,8 +1,8 @@
 body.attendance-platform { display: block; padding: 0; background: var(--ds-bg); }
-.attendance-platform > div:not([id$="Modal"]) { width: calc(100% - 32px); margin: 24px auto; }
+.attendance-platform > .ds-container { width: 100%; margin: 24px auto; }
 .attendance-platform.course-login > div { max-width: 460px; margin: 32px auto; }
-.attendance-platform .platform-nav-inner { display: grid; grid-template-columns: repeat(7,minmax(0,1fr)); }
-.attendance-platform .platform-nav a { white-space: normal; text-align: center; }
+
+
 .attendance-platform input, .attendance-platform select, .attendance-platform textarea { max-width: 100%; }
 .attendance-platform [id$="Modal"] { overflow-y: auto; }
 .attendance-platform [id$="Modal"] > div { margin: auto; max-height: calc(100dvh - 32px); overflow-y: auto; }
@@ -20,11 +20,11 @@ body.attendance-platform { display: block; padding: 0; background: var(--ds-bg);
 .sdgs-shell .course-actions button:last-child { border-color: var(--ds-error); background: #fff1f2; color: var(--ds-error); }
 .sdgs-shell .course-actions button:last-child:hover { background: var(--ds-error); color: white; }
 @media (max-width: 800px) {
-  .attendance-platform .platform-nav-inner { grid-template-columns: repeat(3,minmax(0,1fr)); }
+  
 }
 @media (max-width: 520px) {
-  .attendance-platform .platform-nav-inner { grid-template-columns: repeat(2,minmax(0,1fr)); }
-  .attendance-platform > div:not([id$="Modal"]) { width: calc(100% - 24px); margin: 16px auto; }
+  
+  .attendance-platform > .ds-container { width: 100%; margin: 24px auto; }
   .attendance-platform.course-login > div { padding: 24px 20px; }
   .attendance-platform input:not([type="checkbox"]), .attendance-platform select, .attendance-platform textarea { font-size: 16px; }
   .attendance-platform [id$="Modal"] { align-items: flex-start; padding: 12px; }
