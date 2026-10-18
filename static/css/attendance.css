@@ -26,3 +26,53 @@ body.attendance-platform { display: block; padding: 0; background: var(--ds-bg);
   .attendance-platform [id$="Modal"] { align-items: flex-start; padding: 12px; }
   .attendance-platform [id$="Modal"] > div { max-height: calc(100dvh - 24px); }
 }
+
+/* Student dashboard: use the shared shell; keep course controls and states intact. */
+.course-dashboard { --course-signed: var(--ds-green-ink); --course-leave: var(--ds-warning); --course-makeup: #7e22ce; }
+.course-dashboard .course-welcome { padding: 28px; }
+.course-dashboard .course-welcome h1 { margin-top: 8px; }
+.course-dashboard .course-welcome p:last-child { font-size: 13px; overflow-wrap: anywhere; }
+.course-dashboard .course-stats { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 16px; }
+.course-dashboard .course-stat { color: var(--course-signed); }
+.course-dashboard .course-stat[data-course-stat="leave"] { color: var(--course-leave); }
+.course-dashboard .course-stat[data-course-stat="makeup"] { color: var(--course-makeup); }
+.course-dashboard .course-stat[data-course-stat="absent"] { color: var(--ds-error); }
+.course-dashboard .course-stat[data-course-stat="leave"] .stat-icon { background: #fff5e5; }
+.course-dashboard .course-stat[data-course-stat="makeup"] .stat-icon { background: #f5edff; }
+.course-dashboard .course-stat[data-course-stat="absent"] .stat-icon { background: #fff0f2; }
+.course-dashboard .stat-label { font-size: 14px; font-weight: 600; }
+.course-dashboard .stat-total { display: flex; align-items: baseline; gap: 10px; }
+.course-dashboard .stat-total > span { color: var(--ds-muted); font-size: 13px; }
+.course-dashboard .course-list-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding-bottom: 20px; border-bottom: 1px solid var(--ds-border); }
+.course-dashboard .course-list-title { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.course-dashboard .course-records { display: grid; gap: 12px; }
+.course-dashboard .course-card { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 16px 24px; min-height: 136px; padding: 20px; border: 1px solid var(--ds-border); border-radius: var(--ds-radius); background: white; align-items: center; }
+.course-dashboard .course-card > * { min-width: 0; }
+.course-dashboard .course-information { display: grid; grid-template-columns: 64px minmax(0,1fr); column-gap: 16px; align-items: center; }
+.course-dashboard .course-information::before { content: attr(data-course-icon); grid-row: 1 / 3; display: grid; place-items: center; align-self: stretch; min-height: 72px; border-radius: 12px; background: linear-gradient(135deg,var(--ds-soft),#f0f8fc); font-size: 36px; }
+.course-dashboard .course-information h3 { color: var(--ds-text); }
+.course-dashboard .course-meta { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 8px; color: var(--ds-muted); font-size: 13px; }
+.course-dashboard .course-status { display: grid; gap: 8px; }
+.course-dashboard .course-status > span { justify-self: start; }
+.course-dashboard .course-status > div { flex-direction: column; align-items: flex-start; gap: 4px; }
+.course-dashboard .course-status time { font-size: 13px; color: var(--ds-muted); }
+.course-dashboard .course-record-actions { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; grid-column: 1 / -1; }
+.course-dashboard .course-record-actions button { min-height: 44px; min-width: 0; border-radius: 10px; padding: 10px 12px; font-size: 14px; font-weight: 600; }
+.course-dashboard .course-record-actions button:not(:disabled) { background: var(--ds-green-ink); color: white; }
+.course-dashboard .course-record-actions button:not(:disabled):hover { background: var(--accent-hover); }
+.course-dashboard .course-record-actions button[onclick^="openLeaveModal"] { background: #fff5e5; color: var(--course-leave); border: 1px solid #f0d4a3; }
+.course-dashboard .course-record-actions button[onclick^="openLeaveModal"]:hover { background: #ffedcd; }
+@media(min-width:1200px) {
+ .course-dashboard .course-card { grid-template-columns: minmax(0,1.45fr) minmax(160px,.65fr) minmax(300px,1fr); }
+ .course-dashboard .course-record-actions { grid-column: auto; }
+}
+@media(max-width:899px) { .course-dashboard .course-stats { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+@media(max-width:600px) {
+ .course-dashboard .course-welcome { padding: 20px 20px 160px; }
+ .course-dashboard .course-stats { gap: 12px; }
+ .course-dashboard .course-card { grid-template-columns: minmax(0,1fr); padding: 16px; gap: 16px; }
+ .course-dashboard .course-information { grid-template-columns: 44px minmax(0,1fr); column-gap: 12px; }
+ .course-dashboard .course-information::before { font-size: 28px; }
+ .course-dashboard .course-status > div { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px; }
+ .course-dashboard .course-record-actions { grid-template-columns: minmax(0,1fr); }
+}

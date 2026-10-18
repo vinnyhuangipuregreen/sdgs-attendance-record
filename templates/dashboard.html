@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>「BLIA佛光永續學院」簽到系統 - 學員儀表板</title>
+  <title>課程登錄｜BLIA SDGs 社會影響力系統</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&display=swap');
@@ -12,9 +12,9 @@
     }
   </style>
   <link rel="stylesheet" href="/static/css/design-system.css?v=20261019_ui1280">
-  <link rel="stylesheet" href="/static/css/attendance.css?v=20261019_ui1280">
+  <link rel="stylesheet" href="/static/css/attendance.css?v=20261019_dashboard">
 </head>
-<body class="sdgs-shell attendance-platform min-h-screen bg-[#F8FAFC] p-4 sm:p-6 text-gray-800">
+<body class="sdgs-shell attendance-platform course-dashboard min-h-screen">
   {% include "platform-nav.html" %}
   <main class="ds-container course-main space-y-6">
 
@@ -26,35 +26,51 @@
       <a href="/sso/logout" class="secondary-button">登出</a>
     </section>
 
-    <div class="course-stats grid grid-cols-2 sm:grid-cols-4 gap-4"><div class="content-card"><span class="stat-icon" aria-hidden="true">☑</span><div><div class="text-emerald-700 font-semibold">已簽到</div><div class="stat-value text-emerald-700">{{ stats.signed }}</div></div></div><div class="content-card"><span class="stat-icon" aria-hidden="true">📅</span><div><div class="text-amber-700 font-semibold">已請假</div><div class="stat-value text-amber-700">{{ stats.leave }}</div></div></div><div class="content-card"><span class="stat-icon" aria-hidden="true">🎓</span><div><div class="text-purple-700 font-semibold">已補課</div><div class="stat-value text-purple-700">{{ stats.makeup }}</div></div></div><div class="content-card"><span class="stat-icon" aria-hidden="true">👤</span><div><div class="text-rose-700 font-semibold">未出席</div><div class="stat-value text-rose-700">{{ stats.absent }}</div></div></div></div>
+    <section class="course-stats" aria-label="課程出席統計">
+      <div class="content-card course-stat" data-course-stat="signed">
+        <span class="stat-icon" aria-hidden="true">☑</span>
+        <div><div class="stat-label">已簽到</div><div class="stat-total"><strong class="stat-value">{{ stats.signed }}</strong><span>堂</span></div></div>
+      </div>
+      <div class="content-card course-stat" data-course-stat="leave">
+        <span class="stat-icon" aria-hidden="true">📅</span>
+        <div><div class="stat-label">已請假</div><div class="stat-total"><strong class="stat-value">{{ stats.leave }}</strong><span>堂</span></div></div>
+      </div>
+      <div class="content-card course-stat" data-course-stat="makeup">
+        <span class="stat-icon" aria-hidden="true">🎓</span>
+        <div><div class="stat-label">已補課</div><div class="stat-total"><strong class="stat-value">{{ stats.makeup }}</strong><span>堂</span></div></div>
+      </div>
+      <div class="content-card course-stat" data-course-stat="absent">
+        <span class="stat-icon" aria-hidden="true">👤</span>
+        <div><div class="stat-label">未出席</div><div class="stat-total"><strong class="stat-value">{{ stats.absent }}</strong><span>堂</span></div></div>
+      </div>
+    </section>
 
     <!-- 課程簽到與出缺席列表 -->
     <div class="content-card course-list space-y-4">
-      <div class="flex items-center justify-between pb-3 border-b border-gray-100">
-        <h2 class="text-base font-bold text-gray-800 flex items-center gap-2">
+      <div class="course-list-heading">
+        <h2 class="section-title course-list-title">
           <span>📚 課程簽到與補課</span>
           <span class="text-xs text-gray-400 font-normal">共 {{ courses|length }} 堂課程</span>
         </h2>
         <span class="text-xs text-gray-400">請依課堂時間完成簽到或登錄補課</span>
       </div>
 
-      <div class="space-y-4">
+      <div class="course-records">
         {% for course in courses %}
-        <div data-course-id="{{ course.id }}" class="course-card p-4 sm:p-5 bg-gray-50 rounded-2xl border border-gray-100 space-y-3">
-          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-            <div>
+        <div data-course-id="{{ course.id }}" class="course-card">
+          <div class="course-information" data-course-icon="{{ ['🌱', '🌍', '🌿', '📚'][loop.index0 % 4] }}">
               <div class="flex items-center gap-2 flex-wrap">
                 <span class="px-2 py-0.5 rounded bg-emerald-100/70 text-[#1F2937] text-xs font-bold font-mono">第 {{ course.id }} 堂</span>
                 <h3 class="font-bold text-gray-900 text-sm sm:text-base">{{ course.title }}</h3>
               </div>
-              <div class="text-xs text-gray-500 mt-1.5 flex flex-wrap gap-x-3 gap-y-1">
+              <div class="course-meta">
                 <span>📅 日期：{{ course.course_date }}</span>
                 <span>🕒 時間：{{ course.course_time }}</span>
               </div>
             </div>
 
             <!-- 當前狀態徽章 -->
-            <div class="space-y-2 text-right">
+            <div class="course-status">
               {% if course.status == 'SIGNED_IN' %}
                 <div class="flex flex-wrap justify-end items-center gap-2"><span class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">✓ 已簽到</span><time class="text-xs text-gray-600">{{ course.signed_at }}</time></div>
               {% endif %}
@@ -69,10 +85,9 @@
                 <span class="px-3 py-1 rounded-full text-xs font-medium bg-gray-200 text-gray-600">未簽到</span>
               {% endif %}
             </div>
-          </div>
 
           <!-- 操作按鈕群組 (簽到、請假、補課登錄) -->
-          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2 border-t border-gray-200/60">
+          <div class="course-record-actions">
             {# 1. 簽到按鈕 #}
             {% if course.status == 'SIGNED_IN' %}
               <button disabled class="w-full py-2.5 bg-emerald-50 text-emerald-700 border border-emerald-200 text-sm font-semibold rounded-xl cursor-not-allowed">✓ 已簽到</button>
