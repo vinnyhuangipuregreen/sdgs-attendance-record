@@ -275,10 +275,21 @@ async def admin_page(request: Request):
             "admins": [current_admin],
             "students": request.state.db["students"],
             "courses": request.state.db["courses"],
+            "course_counts": course_record_counts(request.state.db),
             "current_admin": current_admin
         },
         request
     )
+
+
+def course_record_counts(data):
+    counts = {course["id"]: {"SIGNED_IN": 0, "ON_LEAVE": 0, "MAKEUP_DONE": 0} for course in data["courses"]}
+    for key, record in data["attendances"].items():
+        course_id = int(key.rsplit("_", 1)[1])
+        status = record.get("status")
+        if course_id in counts and status in counts[course_id]:
+            counts[course_id][status] += 1
+    return counts
 
 # ==========================================
 # 1. 學員名單管理：範本下載 & Excel 匯入校驗
@@ -797,6 +808,10 @@ async def update_course(course_id: int, request: Request):
 @app.delete("/api/admin/courses/{course_id}")
 async def delete_course(course_id: int, request: Request):
     if not get_current_admin(request): raise HTTPException(status_code=401, detail="未授權")
+    counts = course_record_counts(request.state.db).get(course_id, {})
+    records = [f"{label}：{counts[status]}筆" for status, label in (("SIGNED_IN", "簽到"), ("ON_LEAVE", "請假"), ("MAKEUP_DONE", "補課")) if counts.get(status, 0) > 0]
+    if records:
+        raise HTTPException(status_code=409, detail="因為有以下紀錄，故不可刪除該筆資料：" + "、".join(records) + "。")
     request.state.db["courses"] = [c for c in request.state.db["courses"] if c["id"] != course_id]
     return {"success": True}
 install_sso(app, SECRET_KEY, bool(os.getenv("VERCEL")))

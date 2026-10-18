@@ -7,7 +7,7 @@
   <title>「BLIA佛光永續學院」後台管理系統</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="/static/css/design-system.css?v=20261017_attendance">
-  <link rel="stylesheet" href="/static/css/attendance.css?v=20261017_attendance">
+  <link rel="stylesheet" href="/static/css/attendance.css?v=20261018_course_controls">
 </head>
 <body class="sdgs-shell attendance-platform min-h-screen bg-[#F8FAFC] p-4 sm:p-6 text-gray-800">
   {% include "platform-nav.html" %}
@@ -140,18 +140,25 @@
                   <th class="p-3">課程日期</th>
                   <th class="p-3">課程時間</th>
                   <th class="p-3">開放簽到時間</th>
+                  <th class="p-3 text-center">簽到人數</th>
+                  <th class="p-3 text-center">請假人數</th>
+                  <th class="p-3 text-center">補課人數</th>
                   <th class="p-3 text-right">狀況查看 / 操作</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-gray-100">
                 {% for c in courses %}
-                <tr id="course-row-{{ c.id }}" class="hover:bg-gray-50/60 transition">
+                <tr id="course-row-{{ c.id }}" data-record-counts='{{ course_counts[c.id]|tojson }}' class="hover:bg-gray-50/60 transition">
                   <td class="p-3 text-xs text-gray-400 font-mono">{{ c.id }}</td>
                   <td class="p-3 font-bold text-gray-800">{{ c.title }}</td>
                   <td class="p-3 text-gray-600 text-xs">{{ c.course_date }}</td>
                   <td class="p-3 text-gray-600 text-xs">{{ c.course_time }}</td>
                   <td class="p-3 text-gray-400 text-xs">{{ c.open_time }}</td>
-                  <td class="p-3 text-right space-x-1.5">
+                  {% set counts = course_counts[c.id] %}
+                  <td class="p-3 text-center font-bold">{{ counts.SIGNED_IN }}</td>
+                  <td class="p-3 text-center font-bold">{{ counts.ON_LEAVE }}</td>
+                  <td class="p-3 text-center font-bold">{{ counts.MAKEUP_DONE }}</td>
+                  <td class="p-3 text-right course-actions">
                     <a href="/admin/courses/{{ c.id }}/attendance" class="px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-lg text-xs font-medium hover:bg-emerald-100">簽到</a>
                     <a href="/admin/courses/{{ c.id }}/leaves" class="px-2.5 py-1 bg-amber-50 text-amber-700 rounded-lg text-xs font-medium hover:bg-amber-100">請假</a>
                     <a href="/admin/courses/{{ c.id }}/pathdemy" class="px-2.5 py-1 bg-blue-50 text-[#15803D] rounded-lg text-xs font-medium hover:bg-blue-100">補課</a>
@@ -416,6 +423,31 @@
     }
 
     // 課程 CRUD
+    function fitCourseModal() {
+      const modal = document.getElementById('courseModal');
+      if (modal.classList.contains('hidden') || window.parent === window) return;
+      const frame = window.frameElement;
+      if (!frame) return;
+      let rect = frame.getBoundingClientRect();
+      if (Math.min(window.innerHeight, window.parent.innerHeight - rect.top) - Math.max(0, -rect.top) < 300) {
+        frame.scrollIntoView({block: 'start', behavior: 'instant'});
+        rect = frame.getBoundingClientRect();
+      }
+      const top = Math.max(0, -rect.top);
+      const height = Math.max(0, Math.min(window.innerHeight, window.parent.innerHeight - rect.top) - top);
+      modal.style.top = `${top}px`;
+      modal.style.bottom = 'auto';
+      modal.style.height = `${height}px`;
+      modal.firstElementChild.style.maxHeight = `${Math.max(0, height - 24)}px`;
+    }
+    if (window.parent !== window) {
+      window.parent.addEventListener('resize', fitCourseModal);
+      window.parent.addEventListener('scroll', fitCourseModal);
+      window.addEventListener('pagehide', () => {
+        window.parent.removeEventListener('resize', fitCourseModal);
+        window.parent.removeEventListener('scroll', fitCourseModal);
+      });
+    }
     function openCourseModal() {
       document.getElementById('modalCourseId').value = '';
       document.getElementById('modalCourseTitle').value = '';
@@ -424,6 +456,7 @@
       document.getElementById('modalCourseOpenTime').value = '';
       document.getElementById('courseModalTitle').innerText = '新增課程';
       document.getElementById('courseModal').classList.remove('hidden');
+      fitCourseModal();
     }
     function closeCourseModal() { document.getElementById('courseModal').classList.add('hidden'); }
     function editCourse(id, title, cdate, ctime, otime) {
@@ -434,6 +467,7 @@
       document.getElementById('modalCourseOpenTime').value = otime;
       document.getElementById('courseModalTitle').innerText = '修改課程資料';
       document.getElementById('courseModal').classList.remove('hidden');
+      fitCourseModal();
     }
     async function saveCourse() {
       const id = document.getElementById('modalCourseId').value;
@@ -456,9 +490,16 @@
       closeCourseModal();
     }
     async function deleteCourse(id) {
+      const counts = JSON.parse(document.getElementById(`course-row-${id}`)?.dataset.recordCounts || '{}');
+      const records = [['SIGNED_IN', '簽到'], ['ON_LEAVE', '請假'], ['MAKEUP_DONE', '補課']]
+        .filter(([status]) => counts[status] > 0).map(([status, label]) => `${label}：${counts[status]}筆`);
+      if (records.length) return alert(`因為有以下紀錄，故不可刪除該筆資料：${records.join('、')}。`);
       if (!confirm('確定刪除此課程？')) return;
       const res = await fetch(`/api/admin/courses/${id}`, { method: 'DELETE' });
-      if (!res.ok) return alert('刪除失敗，請稍後重試');
+      if (!res.ok) {
+        const result = await res.json();
+        return alert(result.detail || result.error || '刪除失敗，請稍後重試');
+      }
       document.getElementById(`course-row-${id}`)?.remove();
       document.getElementById('courseCount').textContent = `共 ${document.querySelectorAll('[id^="course-row-"]').length} 堂課程`;
     }

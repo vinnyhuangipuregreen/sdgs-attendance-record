@@ -13,6 +13,12 @@ body.attendance-platform { display: block; padding: 0; background: var(--ds-bg);
 .attendance-platform .bg-blue-50 { background-color: #f0fdf4; }
 .attendance-platform .border-blue-200 { border-color: #bbdfc6; }
 .attendance-platform .text-blue-600, .attendance-platform .text-blue-700 { color: var(--ds-green-ink); }
+.attendance-platform #panel-courses table { min-width: 1100px; }
+.attendance-platform .course-actions { white-space: nowrap; }
+.sdgs-shell .course-actions a, .sdgs-shell .course-actions button { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 48px; margin: 3px 0 3px 3px; padding: 8px 10px; border: 1px solid var(--ds-green-ink); border-radius: 10px; background: var(--ds-soft); color: var(--ds-green-ink); font-size: 12px; font-weight: 700; text-decoration: none; cursor: pointer; }
+.sdgs-shell .course-actions a:hover, .sdgs-shell .course-actions button:hover { background: var(--ds-green-ink); color: white; }
+.sdgs-shell .course-actions button:last-child { border-color: var(--ds-error); background: #fff1f2; color: var(--ds-error); }
+.sdgs-shell .course-actions button:last-child:hover { background: var(--ds-error); color: white; }
 @media (max-width: 800px) {
   .attendance-platform .platform-nav-inner { grid-template-columns: repeat(3,minmax(0,1fr)); }
 }

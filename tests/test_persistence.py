@@ -89,6 +89,27 @@ class PersistenceTests(unittest.TestCase):
             self.assertEqual(client.delete(f"/api/admin/courses/{course_id}").status_code, 200)
             self.assertNotIn("已更新課程", client.get("/admin").text)
 
+    def test_recorded_courses_cannot_be_deleted_and_counts_match_the_list(self):
+        with TestClient(index.app) as client:
+            self.login_admin(client)
+            for status, label in (("SIGNED_IN", "簽到"), ("ON_LEAVE", "請假"), ("MAKEUP_DONE", "補課")):
+                version, data = index.store.load()
+                data["attendances"] = {"1_1":{"status":status}}
+                index.store.save(version, data)
+                before = index.store.load()
+                response = client.delete("/api/admin/courses/1")
+                self.assertEqual(response.status_code, 409)
+                self.assertEqual(response.json()["detail"], f"因為有以下紀錄，故不可刪除該筆資料：{label}：1筆。")
+                self.assertEqual(index.store.load(), before)
+                page = client.get("/admin").text
+                for heading in ("簽到人數", "請假人數", "補課人數"):
+                    self.assertIn(heading, page)
+            version, data = index.store.load()
+            data["attendances"] = {"1_1":{"status":"SIGNED_IN"},"2_1":{"status":"SIGNED_IN"},"3_1":{"status":"MAKEUP_DONE"}}
+            index.store.save(version, data)
+            response = client.delete("/api/admin/courses/1")
+            self.assertEqual(response.json()["detail"], "因為有以下紀錄，故不可刪除該筆資料：簽到：2筆、補課：1筆。")
+
     def test_student_import_and_attendance_changes_are_persistent(self):
         workbook = openpyxl.Workbook()
         sheet = workbook.active

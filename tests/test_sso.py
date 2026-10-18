@@ -123,7 +123,7 @@ class CourseSsoTests(unittest.TestCase):
         headers = {"Authorization":"Bearer platform-token", "X-Platform-Embedded":"1"}
         for method in ("put", "delete"):
             self.remote_mock.reset_mock()
-            response = getattr(self.client, method)("/api/admin/courses/1", headers=headers, **({"json":{"title":"Updated test course"}} if method == "put" else {}))
+            response = getattr(self.client, method)("/api/admin/courses/2", headers=headers, **({"json":{"title":"Updated test course"}} if method == "put" else {}))
             self.assertEqual(response.status_code, 200)
             self.assertEqual([call.args[0] for call in self.remote_mock.call_args_list], ["/api/auth/me"])
 
