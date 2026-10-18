@@ -7,7 +7,6 @@
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- SheetJS CDN (支援 xlsx, xls 本地解析) -->
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&display=swap');
     body {
@@ -193,7 +192,7 @@
                   <th class="py-3.5 px-4">Email</th>
                   <th class="py-3.5 px-4 text-blue-700">Email(補課平台)</th>
                   <th class="py-3.5 px-4">聯絡電話</th>
-                  <th class="py-3.5 px-4">補課時間</th>
+                  <th class="py-3.5 px-4">請假時間</th><th class="py-3.5 px-4">補課時間</th>
                   <th class="py-3.5 px-4 text-center">刪除補課</th>
                 </tr>
               </thead>
@@ -283,64 +282,13 @@
     {% if course %}{{ course | tojson }}{% else %}null{% endif %}
   </script>
 
-  <!-- 伺服器傳遞之學員名單 JSON (若由 FastAPI Jinja2 渲染時注入) -->
-  <script id="serverStudentsData" type="application/json">
-    {% if all_students %}{{ all_students | tojson }}{% else %}[]{% endif %}
-  </script>
+  <script id="serverMakeupData" type="application/json">{{ records | tojson }}</script>
 
   <script>
     // ==========================================
     // 當前課程狀態管理 (確保只針對「選擇的該堂課」匯入補課清單，絕不套用至其他課程)
     // ==========================================
-    let currentCourse = {
-      id: 1,
-      title: "導論：自然永續的核心觀念與倫理基礎",
-      course_date: "2026/09/15",
-      course_time: "18:00-22:00"
-    };
-
-    function initCurrentCourse() {
-      // 1. 優先從後端 Jinja 模板注入的課程資料讀取
-      try {
-        const el = document.getElementById('currentCourseData');
-        if (el && el.textContent.trim() && el.textContent.trim() !== 'null') {
-          const c = JSON.parse(el.textContent);
-          if (c && c.id) {
-            currentCourse = c;
-            updateCourseHeaderUI();
-            return;
-          }
-        }
-      } catch(e) {}
-
-      // 2. 嘗試從 URL 路徑解析 (/admin/courses/{id}/pathdemy)
-      const matchPath = window.location.pathname.match(/\/courses\/(\d+)/i);
-      let targetId = null;
-      if (matchPath) {
-        targetId = parseInt(matchPath, 10);
-      } else {
-        // 3. 嘗試從 URL 參數解析 (?course_id={id})
-        const params = new URLSearchParams(window.location.search);
-        if (params.has('course_id')) {
-          targetId = parseInt(params.get('course_id'), 10);
-        }
-      }
-
-      if (targetId) {
-        currentCourse.id = targetId;
-        try {
-          const allCourses = JSON.parse(localStorage.getItem('blia_courses') || '[]');
-          const matched = allCourses.find(c => Number(c.id) === targetId);
-          if (matched) {
-            currentCourse = matched;
-          } else {
-            currentCourse.title = `課程 #${targetId}`;
-          }
-        } catch(e) {}
-      }
-
-      updateCourseHeaderUI();
-    }
+    const currentCourse = JSON.parse(document.getElementById('currentCourseData').textContent);
 
     function updateCourseHeaderUI() {
       const titleEl = document.getElementById('courseTitleHeader');
@@ -356,285 +304,34 @@
       if (previewTitleEl && currentCourse.title) previewTitleEl.innerText = currentCourse.title;
     }
 
-    // ==========================================
-    // 動態載入最新學員名單 (與後台學員名單維護完全同步)
-    // ==========================================
-    let systemStudents = [];
-
-    function loadSystemStudents() {
-      // 1. 優先從 localStorage 讀取最新學員名冊 (學員名單維護同步儲存的 blia_students)
-      try {
-        const stored = JSON.parse(localStorage.getItem('blia_students') || '[]');
-        if (Array.isArray(stored) && stored.length > 0) {
-          systemStudents = stored;
-          return;
-        }
-      } catch (e) {}
-
-      // 2. 嘗試從後端 Jinja 模板注入的 JSON 讀取
-      try {
-        const scriptData = document.getElementById('serverStudentsData');
-        if (scriptData && scriptData.textContent.trim()) {
-          const parsed = JSON.parse(scriptData.textContent);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            systemStudents = parsed;
-            return;
-          }
-        }
-      } catch (e) {}
-
-      // 3. 預設備援學員名冊
-      systemStudents = [
-        {
-          id: 1,
-          name: "黃雅筠",
-          email: "vinnyhuang.ipuregreen@gmail.com",
-          email_pathdemy: "vinnyhuang168@gmail.com",
-          phone: "0912345678"
-        },
-        {
-          id: 2,
-          name: "林小明",
-          email: "ming@example.com",
-          email_pathdemy: "ming@example.com",
-          phone: "0987654321"
-        }
-      ];
-    }
-
-    // 當前選擇課程的補課清單狀態 (以 currentCourse.id 嚴格隔離)
-    let makeupRecords = [];
+    // 補課紀錄以伺服器資料庫為準，學員送出後重新開啟即可查到。
+    let makeupRecords = JSON.parse(document.getElementById('serverMakeupData').textContent).map(record => ({
+      id:String(record.id), student_id:record.id, student_name:record.name,
+      email:record.email, platform_email:record.email_pathdemy, phone:record.phone,
+      makeup_time:record.makeup_date, leave_at:record.leave_at
+    }));
     let recordToDeleteId = null;
-
-    // 初始化載入
-    document.addEventListener("DOMContentLoaded", () => {
-      initCurrentCourse();
-      loadSystemStudents();
-      loadStorageData();
+    document.addEventListener('DOMContentLoaded', () => {
+      updateCourseHeaderUI();
       renderAll();
     });
 
-    // 從 LocalStorage 讀取「當前選擇課程」的補課紀錄，並自動比對學員名單補齊欄位
-    function loadStorageData() {
-      loadSystemStudents();
-      const storageKey = `blia_makeup_records_course_${currentCourse.id}`;
-      try {
-        const saved = localStorage.getItem(storageKey);
-        if (saved) {
-          makeupRecords = JSON.parse(saved);
-        } else {
-          makeupRecords = [];
-        }
-      } catch (e) {
-        makeupRecords = [];
-      }
-
-      // 自動比對補齊既有資料中未補上的學員姓名、Email、聯絡電話
-      makeupRecords.forEach(rec => {
-        if (!rec.student_id || rec.student_name === '外部未登記學員' || rec.email === '-' || rec.phone === '-') {
-          const targetEmail = String(rec.platform_email || '').trim().toLowerCase();
-          const matched = systemStudents.find(s => {
-            const sPathdemy = String(s.email_pathdemy || s.platform_email || '').trim().toLowerCase();
-            const sEmail = String(s.email || '').trim().toLowerCase();
-            return (sPathdemy && sPathdemy === targetEmail) || 
-                   (sEmail && sEmail === targetEmail) || 
-                   (targetEmail.startsWith('vinnyhuang') && s.name === '黃雅筠');
-          });
-          if (matched) {
-            rec.student_id = matched.id;
-            rec.student_name = matched.name;
-            rec.email = matched.email;
-            rec.phone = matched.phone;
-          }
-        }
-      });
-    }
-
-    // 儲存補課資料至 LocalStorage，並「只針對當前選擇的課程」更新出缺席狀態，絕不影響其他課程
-    function saveStorageData() {
-      const storageKey = `blia_makeup_records_course_${currentCourse.id}`;
-      localStorage.setItem(storageKey, JSON.stringify(makeupRecords));
-
-      // 取得或初始化總體出缺席狀態 (全系統標準鍵名格式: ${student_id}_${course_id})
-      let attendances = {};
-      try {
-        attendances = JSON.parse(localStorage.getItem("blia_attendances") || "{}");
-      } catch(e) {
-        attendances = {};
-      }
-
-      // 核心隔離：僅清除「當前這堂課 (course_id: currentCourse.id)」的補課標記，其他課程完全保留且不受影響
-      for (const key in attendances) {
-        if (key.endsWith(`_${currentCourse.id}`) && (attendances[key].status === "MAKEUP" || attendances[key].status === "MAKEUP_DONE")) {
-          delete attendances[key];
-        }
-      }
-
-      // 依目前這堂課的補課名單，嚴格為「當前這堂課程」標記學員為已補課
-      makeupRecords.forEach(rec => {
-        if (rec.student_id) {
-          // 鍵值格式嚴格為: ${student_id}_${currentCourse.id}
-          const key = `${rec.student_id}_${currentCourse.id}`;
-          attendances[key] = {
-            course_id: currentCourse.id,
-            student_id: rec.student_id,
-            student_name: rec.student_name,
-            email: rec.email,
-            status: "MAKEUP_DONE",
-            status_text: "已補課",
-            makeup_time: rec.makeup_time,
-            updated_at: new Date().toISOString()
-          };
-        }
-      });
-
-      localStorage.setItem("blia_attendances", JSON.stringify(attendances));
-
-      try {
-        window.dispatchEvent(new Event("storage"));
-      } catch(e) {}
-
-      // 更新前台預覽
-      renderFrontEndPreview();
-    }
-
-    // ==========================================
-    // Excel 檔案解析與欄位格式校驗 (只針對選擇的該堂課程匯入補課清單)
-    // ==========================================
     async function handleFileUpload(event) {
       const file = event.target.files[0];
       if (!file) return;
-
-      const filename = file.name.toLowerCase();
-      if (!filename.endsWith('.xlsx') && !filename.endsWith('.xls')) {
-        alert('❌ 上傳失敗！僅支援 Excel 檔案格式 (.xlsx 或 .xls)');
-        showToast('上傳失敗！僅支援 Excel 檔案格式 (.xlsx 或 .xls)', 'error');
-        event.target.value = '';
-        return;
-      }
-
-      showToast(`檔案讀取中，正在為課程【${currentCourse.title}】比對學員名單...`, 'info');
-
+      const form = new FormData();
+      form.append('file', file);
       try {
-        const data = await file.arrayBuffer();
-        const workbook = XLSX.read(data, { type: 'array' });
-        const firstSheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[firstSheetName];
-        
-        // 讀取所有資料列（二維陣列）
-        const sheetRows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
-
-        if (!sheetRows || sheetRows.length < 1) {
-          alert('❌ 上傳的 Excel 檔案為空，請確認內容！');
-          showToast('上傳的 Excel 檔案為空，請確認內容！', 'error');
-          event.target.value = '';
-          return;
-        }
-
-        // 取得第一列標題欄位
-        const uploadedHeaders = (sheetRows[0] || []).map(c => String(c || '').trim()).filter(c => c.length > 0);
-        const expectedHeaders = ['Email(補課平台)', '補課日期'];
-
-        // 嚴格比對欄位格式：檢查是否缺欄或多欄
-        const missingFields = expectedHeaders.filter(h => !uploadedHeaders.includes(h));
-        const extraFields = uploadedHeaders.filter(h => !expectedHeaders.includes(h));
-
-        if (missingFields.length > 0 || extraFields.length > 0) {
-          let errMsg = '匯入失敗！欄位格式不符合範例檔案 (pathdemy_list_upload.xlsx)：\n';
-          if (missingFields.length > 0) {
-            errMsg += `❌ 缺少必要欄位：【${missingFields.join('、')}】\n`;
-          }
-          if (extraFields.length > 0) {
-            errMsg += `⚠️ 多出未定義欄位：【${extraFields.join('、')}】\n`;
-          }
-          errMsg += `👉 標準欄位格式為：【${expectedHeaders.join('、')}】\n請點擊上方「📥 下載範例Excel」核對格式後重新上傳。`;
-          alert(errMsg);
-          showToast('欄位格式不符合範例檔案，已取消匯入！', 'error');
-          event.target.value = '';
-          return;
-        }
-
-        const emailIdx = uploadedHeaders.indexOf('Email(補課平台)');
-        const dateIdx = uploadedHeaders.indexOf('補課日期');
-
-        let addedCount = 0;
-        let matchedCount = 0;
-
-        for (let idx = 1; idx < sheetRows.length; idx++) {
-          const row = sheetRows[idx];
-          if (!row || !row.some(val => val !== '' && val !== null && val !== undefined)) continue;
-
-          const rowPlatformEmail = String(row[emailIdx] || '').trim();
-          let rowDate = formatDateTime(row[dateIdx]);
-          if (!rowDate) rowDate = new Date().toISOString().replace('T', ' ').substring(0, 19);
-
-          if (!rowPlatformEmail) continue;
-
-          // 核心功能：透過 [Email(補課平台)] 比對學員名單
-          const targetEmail = rowPlatformEmail.toLowerCase();
-          const matchedStudent = systemStudents.find(s => {
-            const sPathdemy = String(s.email_pathdemy || s.platform_email || '').trim().toLowerCase();
-            const sEmail = String(s.email || '').trim().toLowerCase();
-            return (sPathdemy && sPathdemy === targetEmail) || 
-                   (sEmail && sEmail === targetEmail) || 
-                   (targetEmail.startsWith('vinnyhuang') && s.name === '黃雅筠');
-          });
-
-          const exists = makeupRecords.find(r => r.platform_email.toLowerCase() === targetEmail);
-
-          // 比對後自動補上 [學員姓名]、[Email]、[聯絡電話]
-          const record = {
-            id: exists ? exists.id : `makeup_${currentCourse.id}_${Date.now()}_${idx}_${Math.random().toString(36).substr(2, 4)}`,
-            student_id: matchedStudent ? matchedStudent.id : null,
-            student_name: matchedStudent ? matchedStudent.name : '外部未登記學員',
-            email: matchedStudent ? matchedStudent.email : '-',
-            platform_email: rowPlatformEmail,
-            phone: matchedStudent ? matchedStudent.phone : '-',
-            makeup_time: rowDate
-          };
-
-          if (matchedStudent) matchedCount++;
-
-          if (exists) {
-            Object.assign(exists, record);
-          } else {
-            makeupRecords.push(record);
-            addedCount++;
-          }
-        }
-
-        // 僅發送到後端「當前選擇課程」的補課匯入 API
-        try {
-          const formData = new FormData();
-          formData.append('file', file);
-          await fetch(`/api/admin/courses/${currentCourse.id}/pathdemy/import`, { method: 'POST', body: formData });
-        } catch(apiErr) {
-          console.log('後端同步備援處理:', apiErr);
-        }
-
-        // 儲存至本地快取並同步更新當前課程狀態
-        saveStorageData();
-        renderAll();
-
-        alert(`🎉 成功匯入完成！共處理 ${sheetRows.length - 1} 筆資料，成功比對學員名單 ${matchedCount} 筆。\n本次匯入僅針對課程【${currentCourse.title}】更新補課紀錄，其他課程完全不受影響！\n已透過「Email(補課平台)」自動補齊【學員姓名】、【Email】與【聯絡電話】。`);
-        showToast(`🎉 課程【${currentCourse.title}】補課名單匯入成功！`, 'success');
-      } catch (err) {
-        console.error(err);
-        alert('❌ 檔案格式讀取失敗，請確認為標準 Excel (.xlsx 或 .xls) 格式！');
-        showToast('檔案格式解析失敗！', 'error');
+        const response = await fetch(`/api/admin/courses/${currentCourse.id}/pathdemy/import`, {method:'POST',body:form});
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.detail || result.error || '匯入失敗');
+        alert(`成功匯入 ${result.count} 筆補課紀錄。`);
+        location.reload();
+      } catch (error) {
+        alert(error.message);
       } finally {
         event.target.value = '';
       }
-    }
-
-    // 日期格式化工具
-    function formatDateTime(val) {
-      if (!val) return "";
-      if (typeof val === "number") {
-        const date = new Date((val - (25567 + 2)) * 86400 * 1000);
-        return date.toISOString().replace("T", " ").substring(0, 19);
-      }
-      return String(val).trim();
     }
 
     // ==========================================
@@ -704,7 +401,7 @@
             <td class="py-3.5 px-4 text-slate-600 font-mono text-xs">${escapeHtml(rec.email)}</td>
             <td class="py-3.5 px-4 font-mono text-xs text-blue-700 font-semibold">${escapeHtml(rec.platform_email)}</td>
             <td class="py-3.5 px-4 text-slate-600 font-mono text-xs">${escapeHtml(rec.phone)}</td>
-            <td class="py-3.5 px-4 font-mono text-xs text-slate-500">${escapeHtml(rec.makeup_time)}</td>
+            <td class="py-3.5 px-4 font-mono text-xs text-slate-500">${escapeHtml(rec.leave_at || "-")}</td><td class="py-3.5 px-4 font-mono text-xs text-slate-500">${escapeHtml(rec.makeup_time)}</td>
             <td class="py-3.5 px-4 text-center">
               <button 
                 type="button" 
@@ -737,7 +434,7 @@
     // 刪除補課紀錄功能
     function promptDeleteRecord(id, studentName) {
       recordToDeleteId = id;
-      document.getElementById("deleteModalDesc").innerHTML = `確定要刪除學員「<strong class="text-slate-900">${studentName}</strong>」在課程【${currentCourse.title}】的補課紀錄嗎？<br>刪除後該學員在【前台】的此堂課將恢復為未補課狀態。`;
+      document.getElementById("deleteModalDesc").innerHTML = `確定要刪除學員「<strong class="text-slate-900">${escapeHtml(studentName)}</strong>」在課程【${escapeHtml(currentCourse.title)}】的補課紀錄嗎？<br>刪除後該學員在【前台】的此堂課將恢復為未補課狀態。`;
       document.getElementById("deleteModal").classList.remove("hidden");
     }
 
@@ -746,17 +443,17 @@
       document.getElementById("deleteModal").classList.add("hidden");
     }
 
-    document.getElementById("confirmDeleteBtn").addEventListener("click", () => {
-      if (!recordToDeleteId) return;
-      const targetRec = makeupRecords.find(r => r.id === recordToDeleteId);
-      const name = targetRec ? targetRec.student_name : "該學員";
-
-      makeupRecords = makeupRecords.filter(r => r.id !== recordToDeleteId);
-      saveStorageData();
-      renderAll();
-      closeDeleteModal();
-
-      showToast(`已成功刪除「${name}」在課程【${currentCourse.title}】的補課紀錄！`, "success");
+    document.getElementById('confirmDeleteBtn').addEventListener('click', async () => {
+      const record = makeupRecords.find(item => item.id === recordToDeleteId);
+      if (!record) return;
+      try {
+        const response = await fetch(`/api/admin/courses/${currentCourse.id}/pathdemy/${record.student_id}`, {method:'DELETE'});
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.detail || result.error || '刪除補課失敗');
+        location.reload();
+      } catch (error) {
+        alert(error.message);
+      }
     });
 
     // 前台同步狀態驗證模擬

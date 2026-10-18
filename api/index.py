@@ -5,6 +5,7 @@ import copy
 from starlette.concurrency import run_in_threadpool
 from api.storage import AttendanceStore, ConcurrentUpdate, DATABASE_NAME
 from api.sso import resolve_session, install_sso
+from api.attendance import taiwan_now, record_view, apply_action
 from pathlib import Path
 from datetime import datetime
 from typing import Optional
@@ -162,27 +163,21 @@ async def dashboard_page(request: Request):
     if not student:
         return RedirectResponse(url="/sso/login", status_code=302)
     
-    signed_count = sum(1 for k, v in request.state.db["attendances"].items() if k.startswith(f"{student['id']}_") and v.get("status") == "SIGNED_IN")
-    leave_count = sum(1 for k, v in request.state.db["attendances"].items() if k.startswith(f"{student['id']}_") and v.get("status") == "ON_LEAVE")
-    makeup_count = sum(1 for k, v in request.state.db["attendances"].items() if k.startswith(f"{student['id']}_") and v.get("status") == "MAKEUP_DONE")
-    absent_count = sum(1 for k, v in request.state.db["attendances"].items() if k.startswith(f"{student['id']}_") and v.get("status") == "ABSENT")
-
+    now = taiwan_now()
     courses_view = []
     for c in request.state.db["courses"]:
         record = request.state.db["attendances"].get(f"{student['id']}_{c['id']}")
-        status = record["status"] if record else "PENDING"
-        makeup_date = record.get("makeup_date", "") if record else ""
-        courses_view.append({**c, "status": status, "makeup_date": makeup_date})
+        courses_view.append({**c, **record_view(c, record, now)})
 
     return render_template(
         "dashboard.html",
         {
             "student": student,
             "stats": {
-                "signed": signed_count,
-                "leave": leave_count,
-                "makeup": makeup_count,
-                "absent": absent_count
+                "signed": sum(c["status"] == "SIGNED_IN" for c in courses_view),
+                "leave": sum(c["status"] == "ON_LEAVE" or bool(c["leave_at"]) for c in courses_view),
+                "makeup": sum(c["status"] == "MAKEUP_DONE" for c in courses_view),
+                "absent": sum(c["status"] == "ABSENT" for c in courses_view)
             },
             "courses": courses_view
         },
@@ -203,13 +198,7 @@ async def api_checkin(request: Request):
     if not student:
         raise HTTPException(status_code=401, detail="請先登入")
     data = await request.json()
-    course_id = data.get("course_id")
-    key = f"{student['id']}_{course_id}"
-    request.state.db["attendances"][key] = {
-        "status": "SIGNED_IN",
-        "signed_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    }
-    return {"success": True}
+    return apply_action(request.state.db, student, data.get("course_id"), "checkin", taiwan_now())
 
 @app.post("/api/attendance/leave")
 async def api_leave(request: Request):
@@ -217,15 +206,7 @@ async def api_leave(request: Request):
     if not student:
         raise HTTPException(status_code=401, detail="請先登入")
     data = await request.json()
-    course_id = data.get("course_id")
-    reason = data.get("reason", "")
-    key = f"{student['id']}_{course_id}"
-    request.state.db["attendances"][key] = {
-        "status": "ON_LEAVE",
-        "reason": reason,
-        "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    }
-    return {"success": True}
+    return apply_action(request.state.db, student, data.get("course_id"), "leave", taiwan_now(), data.get("reason", ""))
 
 @app.post("/api/attendance/makeup")
 async def api_makeup(request: Request):
@@ -233,19 +214,7 @@ async def api_makeup(request: Request):
     if not student:
         raise HTTPException(status_code=401, detail="請先登入")
     data = await request.json()
-    course_id = data.get("course_id")
-    key = f"{student['id']}_{course_id}"
-    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    platform_email = student.get("email_pathdemy") or student["email"]
-    
-    request.state.db["attendances"][key] = {
-        "status": "MAKEUP_DONE",
-        "makeup_date": now_str,
-        "platform_email": platform_email,
-        "note": "自行登錄",
-        "updated_at": now_str
-    }
-    return {"success": True}
+    return apply_action(request.state.db, student, data.get("course_id"), "makeup", taiwan_now())
 
 # ==========================================
 # 後台管理路由
@@ -289,6 +258,8 @@ def course_record_counts(data):
         status = record.get("status")
         if course_id in counts and status in counts[course_id]:
             counts[course_id][status] += 1
+            if status == "MAKEUP_DONE" and record.get("leave_at"):
+                counts[course_id]["ON_LEAVE"] += 1
     return counts
 
 # ==========================================
@@ -565,6 +536,7 @@ async def course_pathdemy_page(course_id: int, request: Request):
                 "email_pathdemy": rec.get("platform_email") or s.get("email_pathdemy", s["email"]), 
                 "phone": s["phone"],
                 "makeup_date": rec.get("makeup_date", "-"),
+                "leave_at": rec.get("leave_at", ""),
                 "note": rec.get("note", "管理員批次匯入"),
                 "imported_by": rec.get("imported_by", "")
             })
@@ -643,7 +615,7 @@ async def import_pathdemy_excel(course_id: int, request: Request, file: UploadFi
         raw_email = cell_to_str(row[email_idx]).lower() if len(row) > email_idx else ""
         raw_date = cell_to_str(row[date_idx]) if len(row) > date_idx else ""
         if not raw_date:
-            raw_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            raw_date = taiwan_now().strftime("%Y-%m-%d %H:%M:%S")
 
         if not raw_email or "@" not in raw_email:
             continue
@@ -658,9 +630,12 @@ async def import_pathdemy_excel(course_id: int, request: Request, file: UploadFi
         ), None)
 
         if matched:
+            previous = request.state.db["attendances"].get(f"{matched['id']}_{course_id}", {})
             # 關鍵：僅針對當前所選的 course_id 補上 [學員姓名]、[Email]、[聯絡電話]
             request.state.db["attendances"][f"{matched['id']}_{course_id}"] = {
+                **previous,
                 "status": "MAKEUP_DONE",
+                "leave_at": previous.get("leave_at") or (previous.get("updated_at", "") if previous.get("status") == "ON_LEAVE" else ""),
                 "makeup_date": raw_date,
                 "platform_email": raw_email,
                 "student_name": matched["name"],
@@ -668,7 +643,7 @@ async def import_pathdemy_excel(course_id: int, request: Request, file: UploadFi
                 "student_phone": matched["phone"],
                 "note": "管理員批次匯入",
                 "imported_by": admin["email"],
-                "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                "updated_at": taiwan_now().strftime("%Y-%m-%d %H:%M:%S")
             }
             count += 1
 
@@ -684,7 +659,12 @@ async def import_pathdemy_excel(course_id: int, request: Request, file: UploadFi
 async def cancel_makeup(course_id: int, student_id: int, request: Request):
     if not get_current_admin(request): raise HTTPException(status_code=401, detail="未授權")
     key = f"{student_id}_{course_id}"
-    if key in request.state.db["attendances"]: del request.state.db["attendances"][key]
+    record = request.state.db["attendances"].get(key)
+    if record and record.get("leave_at"):
+        request.state.db["attendances"][key] = {"status": "ON_LEAVE", "reason": record.get("reason", ""),
+            "leave_at": record["leave_at"], "updated_at": record["leave_at"]}
+    elif record:
+        del request.state.db["attendances"][key]
     return {"success": True}
 
 # ==========================================
@@ -697,11 +677,12 @@ async def course_attendance_page(course_id: int, request: Request):
     if not course: return RedirectResponse(url="/admin", status_code=302)
     
     student_records = []
+    now = taiwan_now()
     signed_count = sum(1 for s in request.state.db["students"] if request.state.db["attendances"].get(f"{s['id']}_{course['id']}", {}).get("status") == "SIGNED_IN")
     for s in request.state.db["students"]:
         key = f"{s['id']}_{course['id']}"
         rec = request.state.db["attendances"].get(key)
-        status = rec["status"] if rec else "PENDING"
+        status = record_view(course, rec, now)["status"]
         student_records.append({
             "id": s["id"], "name": s["name"], "email": s["email"],
             "email_pathdemy": s.get("email_pathdemy", s["email"]), "phone": s["phone"],
@@ -729,11 +710,11 @@ async def course_leaves_page(course_id: int, request: Request):
     for s in request.state.db["students"]:
         key = f"{s['id']}_{course['id']}"
         rec = request.state.db["attendances"].get(key)
-        if rec and rec.get("status") == "ON_LEAVE":
+        if rec and (rec.get("status") == "ON_LEAVE" or rec.get("leave_at")):
             leave_records.append({
                 "student_id": s["id"], "name": s["name"], "email": s["email"],
                 "email_pathdemy": s.get("email_pathdemy", s["email"]), "phone": s["phone"],
-                "reason": rec.get("reason", "未填寫"), "updated_at": rec.get("updated_at", "-")
+                "reason": rec.get("reason", "未填寫"), "updated_at": rec.get("leave_at") or rec.get("updated_at", "-")
             })
     return render_template(
         "course_leaves.html",
@@ -749,7 +730,12 @@ async def course_leaves_page(course_id: int, request: Request):
 async def cancel_leave(course_id: int, student_id: int, request: Request):
     if not get_current_admin(request): raise HTTPException(status_code=401, detail="未授權")
     key = f"{student_id}_{course_id}"
-    if key in request.state.db["attendances"]: del request.state.db["attendances"][key]
+    record = request.state.db["attendances"].get(key)
+    if record and record.get("status") == "MAKEUP_DONE":
+        record.pop("leave_at", None)
+        record.pop("reason", None)
+    elif record:
+        del request.state.db["attendances"][key]
     return {"success": True}
 
 # 學員與課程 CRUD

@@ -129,6 +129,12 @@
                   <span class="px-3 py-1 bg-[#E8F5E9] text-[#2E7D32] text-xs rounded-full font-bold inline-block">
                     ✓ 已簽到
                   </span>
+                {% elif r.status == 'ABSENT' %}
+                  <span class="px-3 py-1 bg-rose-100 text-rose-700 text-xs rounded-full font-bold inline-block">未出席</span>
+                {% elif r.status == 'ON_LEAVE' %}
+                  <span class="px-3 py-1 bg-amber-100 text-amber-800 text-xs rounded-full font-bold inline-block">✓ 已請假</span>
+                {% elif r.status == 'MAKEUP_DONE' %}
+                  <span class="px-3 py-1 bg-purple-100 text-purple-800 text-xs rounded-full font-bold inline-block">✓ 已補課</span>
                 {% else %}
                   <span class="px-3 py-1 bg-gray-100 text-gray-400 text-xs rounded-full font-medium inline-block">
                     未簽到

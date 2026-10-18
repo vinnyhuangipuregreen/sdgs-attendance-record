@@ -70,7 +70,7 @@
 
       <div class="space-y-4">
         {% for course in courses %}
-        <div class="p-4 sm:p-5 bg-gray-50 rounded-2xl border border-gray-100 space-y-3">
+        <div data-course-id="{{ course.id }}" class="p-4 sm:p-5 bg-gray-50 rounded-2xl border border-gray-100 space-y-3">
           <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div>
               <div class="flex items-center gap-2 flex-wrap">
@@ -80,21 +80,22 @@
               <div class="text-xs text-gray-500 mt-1.5 flex flex-wrap gap-x-3 gap-y-1">
                 <span>📅 日期：{{ course.course_date }}</span>
                 <span>🕒 時間：{{ course.course_time }}</span>
-                {% if course.makeup_date %}
-                <span class="text-purple-600 font-medium">✨ 補課時間：{{ course.makeup_date }}</span>
-                {% endif %}
               </div>
             </div>
 
             <!-- 當前狀態徽章 -->
-            <div>
+            <div class="space-y-2 text-right">
               {% if course.status == 'SIGNED_IN' %}
-                <span class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">✓ 已簽到</span>
-              {% elif course.status == 'ON_LEAVE' %}
-                <span class="px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">已請假</span>
-              {% elif course.status == 'MAKEUP_DONE' %}
-                <span class="px-3 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-800 border border-purple-200">✨ 已補課</span>
-              {% else %}
+                <div class="flex flex-wrap justify-end items-center gap-2"><span class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">✓ 已簽到</span><time class="text-xs text-gray-600">{{ course.signed_at }}</time></div>
+              {% endif %}
+              {% if course.status == 'ON_LEAVE' or course.leave_at %}
+                <div class="flex flex-wrap justify-end items-center gap-2"><span class="px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">✓ 已請假</span><time class="text-xs text-gray-600">{{ course.leave_at }}</time></div>
+              {% endif %}
+              {% if course.status == 'MAKEUP_DONE' %}
+                <div class="flex flex-wrap justify-end items-center gap-2"><span class="px-3 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-800 border border-purple-200">✓ 已補課</span><time class="text-xs text-gray-600">{{ course.makeup_date }}</time></div>
+              {% elif course.status == 'ABSENT' %}
+                <span class="px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-700 border border-rose-200">未出席</span>
+              {% elif course.status == 'PENDING' %}
                 <span class="px-3 py-1 rounded-full text-xs font-medium bg-gray-200 text-gray-600">未簽到</span>
               {% endif %}
             </div>
@@ -114,16 +115,16 @@
             {# 2. 請假按鈕 #}
             {% if course.status == 'ON_LEAVE' %}
               <button disabled class="w-full py-2.5 bg-amber-50 text-amber-700 border border-amber-200 text-sm font-semibold rounded-xl cursor-not-allowed">已請假</button>
-            {% elif course.status in ['SIGNED_IN', 'MAKEUP_DONE'] %}
+            {% elif course.status in ['SIGNED_IN', 'MAKEUP_DONE'] or course.closed %}
               <button disabled class="w-full py-2.5 bg-gray-100 text-gray-400 text-sm font-medium rounded-xl cursor-not-allowed">請假</button>
             {% else %}
-              <button onclick="openLeaveModal({{ course.id }}, '{{ course.title }}')" class="w-full py-2.5 bg-[#E5A84B] hover:bg-[#d6983b] text-white text-sm font-semibold rounded-xl transition shadow-xs cursor-pointer">請假</button>
+              <button onclick='openLeaveModal({{ course.id }}, {{ course.title|tojson }})' class="w-full py-2.5 bg-[#E5A84B] hover:bg-[#d6983b] text-white text-sm font-semibold rounded-xl transition shadow-xs cursor-pointer">請假</button>
             {% endif %}
 
             {# 3. 補課登錄按鈕：未請假前反灰，請假後顯示藍底白字可按；已補課後顯示 ✓ 已補課 #}
             {% if course.status == 'MAKEUP_DONE' %}
               <button disabled class="w-full py-2.5 bg-purple-50 text-purple-700 border border-purple-200 text-sm font-semibold rounded-xl cursor-not-allowed">✓ 已補課</button>
-            {% elif course.status == 'ON_LEAVE' %}
+            {% elif course.status == 'ON_LEAVE' and not course.closed %}
               <button onclick="doMakeup({{ course.id }})" class="w-full py-2.5 bg-[#15803D] hover:bg-[#166534] text-white text-sm font-semibold rounded-xl transition shadow-xs cursor-pointer">補課登錄</button>
             {% else %}
               <button disabled class="w-full py-2.5 bg-gray-100 text-gray-400 text-sm font-medium rounded-xl cursor-not-allowed">補課登錄</button>
@@ -135,6 +136,16 @@
     </div>
 
   </div>
+
+  <dialog id="attendanceConfirmDialog" class="rounded-2xl p-6 max-w-sm w-[calc(100%-2rem)] shadow-xl backdrop:bg-black/40">
+    <form method="dialog" class="space-y-5">
+      <p id="attendanceConfirmMessage" class="font-bold text-gray-800"></p>
+      <div class="flex justify-end gap-3">
+        <button value="cancel" class="px-4 py-2 border rounded-xl">取消</button>
+        <button value="confirm" class="px-4 py-2 bg-emerald-700 text-white rounded-xl">確認</button>
+      </div>
+    </form>
+  </dialog>
 
   <!-- 請假原因 Modal -->
   <div id="leaveModal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
@@ -153,84 +164,6 @@
     </div>
   </div>
 
-  <script>
-    // 簽到
-    async function doCheckin(courseId) {
-      if (!confirm('確定現在進行課程簽到？')) return;
-      try {
-        const res = await fetch('/api/attendance/checkin', {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({ course_id: courseId })
-        });
-        if (res.ok) {
-          alert('🎉 簽到成功！');
-          location.reload();
-        } else {
-          const d = await res.json();
-          alert(d.error || '簽到失敗');
-        }
-      } catch (e) {
-        alert('網路連線異常，請稍後再試！');
-      }
-    }
-
-    // 開啟請假 Modal
-    function openLeaveModal(courseId, courseTitle) {
-      document.getElementById('leaveCourseId').value = courseId;
-      document.getElementById('leaveCourseTitle').innerText = courseTitle;
-      document.getElementById('leaveReason').value = '';
-      document.getElementById('leaveModal').classList.remove('hidden');
-    }
-    function closeLeaveModal() {
-      document.getElementById('leaveModal').classList.add('hidden');
-    }
-
-    // 提交請假
-    async function submitLeave() {
-      const courseId = document.getElementById('leaveCourseId').value;
-      const reason = document.getElementById('leaveReason').value.trim();
-      if (!reason) return alert('請填寫請假原因！');
-
-      try {
-        const res = await fetch('/api/attendance/leave', {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({ course_id: courseId, reason })
-        });
-        if (res.ok) {
-          alert('已完成請假登記！');
-          closeLeaveModal();
-          location.reload();
-        } else {
-          const d = await res.json();
-          alert(d.error || '請假登記失敗');
-        }
-      } catch (e) {
-        alert('網路連線異常，請稍後再試！');
-      }
-    }
-
-    // 補課登錄
-    async function doMakeup(courseId) {
-      if (!confirm('確認已於線上平台觀看本課程錄影並登記補課？')) return;
-      try {
-        const res = await fetch('/api/attendance/makeup', {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({ course_id: courseId })
-        });
-        if (res.ok) {
-          alert('🎉 補課登錄成功！');
-          location.reload();
-        } else {
-          const d = await res.json();
-          alert(d.error || '補課登錄失敗');
-        }
-      } catch (e) {
-        alert('網路連線異常，請稍後再試！');
-      }
-    }
-  </script>
+  <script src="/static/js/attendance-dashboard.js?v=20261018_course_rules"></script>
 </body>
 </html>
