@@ -29,7 +29,7 @@ body.attendance-platform { display: block; padding: 0; background: var(--ds-bg);
 
 /* Student dashboard: use the shared shell; keep course controls and states intact. */
 .course-dashboard { --course-signed: var(--ds-green-ink); --course-leave: var(--ds-warning); --course-makeup: #7e22ce; }
-.course-dashboard .course-welcome { padding: 28px; }
+.course-dashboard .course-welcome { padding: 28px; background-image: linear-gradient(90deg,#f3fcf8 25%,#f3fcf8d9 46%,#f3fcf800 70%),url("/static/images/course-community.png?v=20261019_hsingyun"); }
 .course-dashboard .course-welcome h1 { margin-top: 8px; }
 .course-dashboard .course-welcome p:last-child { font-size: 13px; overflow-wrap: anywhere; }
 .course-dashboard .course-stats { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 16px; }
@@ -68,7 +68,7 @@ body.attendance-platform { display: block; padding: 0; background: var(--ds-bg);
 }
 @media(max-width:899px) { .course-dashboard .course-stats { grid-template-columns: repeat(2,minmax(0,1fr)); } }
 @media(max-width:600px) {
- .course-dashboard .course-welcome { padding: 20px 20px 160px; }
+ .course-dashboard .course-welcome { padding: 20px 20px 160px; background-image: linear-gradient(#f3fcf8 0 70%,#f3fcf800 80%),url("/static/images/course-community.png?v=20261019_hsingyun"); }
  .course-dashboard .course-stats { gap: 12px; }
  .course-dashboard .course-card { grid-template-columns: minmax(0,1fr); padding: 16px; gap: 16px; }
  .course-dashboard .course-information { grid-template-columns: 44px minmax(0,1fr); column-gap: 12px; }

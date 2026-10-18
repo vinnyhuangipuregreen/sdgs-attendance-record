@@ -1,0 +1,7 @@
+# 課程頁橫幅：星雲大師形象
+
+資產：`static/images/course-community.png`（2172 × 724）。使用內建 imagegen 編輯既有橫幅，取代三人中左側的年輕法師形象；保留男生、女生、書本、校園與左側文字留白。桌機與手機的呈現沿用原版型，圖片及 CSS 版本為 `20261019_hsingyun`。
+
+最終提示詞：
+
+Use case: precise-object-edit. Edit target: the supplied wide 2172x724 website banner. Change ONLY the Buddhist monk who stands immediately to the left of the young man (leftmost of the three people on the right side). Replace his youthful generic face and youthful body proportions with a recognizable, respectful stylized portrait of Fo Guang Shan founder Venerable Master Hsing Yun (佛光山開山宗長星雲大師), portrayed as a kindly elderly East Asian Buddhist master: broad rounded face and forehead, shaved head, gently heavy eyelids, softly arched brows, broad nose, full rounded cheeks with visible elderly smile folds, large elongated earlobes, warm compassionate smile, mature elderly neck and dignified build. No beard, no glasses. Keep the same gentle welcoming raised-hand gesture, ochre/saffron Buddhist robes, similar position and overall silhouette. Match the existing polished soft 3D illustrated storybook style, not a photographic cutout. Keep the young man, young woman, books, their faces, hands, clothes and positions unchanged. Keep the whole mint-green background, campus, Taipei skyline, trees, leaves, flowers, lighting, camera framing, 3:1 panoramic composition, and large empty pale-green left half unchanged. Do not add text, logos, halo, border, or other people. This is a precise local identity replacement, not a redesign of the whole banner.
