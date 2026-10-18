@@ -26,6 +26,7 @@ class CourseSsoTests(unittest.TestCase):
         self.remote.stop();self.env.stop();self.temp.cleanup()
 
     def response(self,path,token=None,payload=None):
+        if path == "/api/auth/sso/roster?include_profile=true": return {"user":self.profile,"students":[]}
         if path.endswith("exchange"): return {"access_token":"verified-platform-token","user":self.profile}
         if path.endswith("roster"): return []
         return self.profile
@@ -107,6 +108,24 @@ class CourseSsoTests(unittest.TestCase):
         other={**self.profile,"id":8}
         self.assertEqual(link_student(data,other)["id"],10)
         self.assertIn("9_1",data["attendances"])
+
+    def test_course_views_verify_identity_and_roster_with_one_platform_request(self):
+        self.profile.update(account_type="staff", role="admin")
+        headers = {"Authorization":"Bearer platform-token", "X-Platform-Embedded":"1"}
+        for section in ("attendance", "leaves", "pathdemy"):
+            self.remote_mock.reset_mock()
+            response = self.client.get(f"/admin/courses/1/{section}", headers=headers)
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual([call.args[0] for call in self.remote_mock.call_args_list], ["/api/auth/sso/roster?include_profile=true"])
+
+    def test_course_edits_and_deletes_do_not_fetch_the_student_roster(self):
+        self.profile.update(account_type="staff", role="admin")
+        headers = {"Authorization":"Bearer platform-token", "X-Platform-Embedded":"1"}
+        for method in ("put", "delete"):
+            self.remote_mock.reset_mock()
+            response = getattr(self.client, method)("/api/admin/courses/1", headers=headers, **({"json":{"title":"Updated test course"}} if method == "put" else {}))
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual([call.args[0] for call in self.remote_mock.call_args_list], ["/api/auth/me"])
 
     def test_revoked_or_unavailable_platform_login_never_falls_back_to_local_accounts(self):
         state=self.begin()

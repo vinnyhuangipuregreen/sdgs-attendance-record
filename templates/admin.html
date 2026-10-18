@@ -109,7 +109,7 @@
           <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-gray-100">
             <h3 class="text-base font-bold text-gray-800 flex items-center gap-2">
               <span>📚 課程清單維護</span>
-              <span class="text-xs text-gray-400 font-normal">共 {{ courses|length }} 堂課程</span>
+              <span id="courseCount" class="text-xs text-gray-400 font-normal">共 {{ courses|length }} 堂課程</span>
             </h3>
             <div class="flex items-center gap-2.5 flex-wrap">
               <button onclick="openCourseModal()" class="px-3.5 py-2 bg-[#15803D] hover:bg-[#166534] text-white text-xs font-semibold rounded-xl shadow-xs transition">
@@ -145,7 +145,7 @@
               </thead>
               <tbody class="divide-y divide-gray-100">
                 {% for c in courses %}
-                <tr class="hover:bg-gray-50/60 transition">
+                <tr id="course-row-{{ c.id }}" class="hover:bg-gray-50/60 transition">
                   <td class="p-3 text-xs text-gray-400 font-mono">{{ c.id }}</td>
                   <td class="p-3 font-bold text-gray-800">{{ c.title }}</td>
                   <td class="p-3 text-gray-600 text-xs">{{ c.course_date }}</td>
@@ -445,13 +445,22 @@
       const url = id ? `/api/admin/courses/${id}` : '/api/admin/courses';
       const method = id ? 'PUT' : 'POST';
       const res = await fetch(url, { method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ title, course_date, course_time, open_time }) });
-      if (res.ok) location.reload();
-      else alert('儲存失敗');
+      if (!res.ok) return alert('儲存失敗，請稍後重試');
+      const row = id && document.getElementById(`course-row-${id}`);
+      if (!row) return location.reload();
+      const course = (await res.json()).course;
+      ['title', 'course_date', 'course_time', 'open_time'].forEach((field, index) => {
+        row.cells[index + 1].textContent = course[field];
+      });
+      row.querySelector('button').onclick = () => editCourse(course.id, course.title, course.course_date, course.course_time, course.open_time);
+      closeCourseModal();
     }
     async function deleteCourse(id) {
       if (!confirm('確定刪除此課程？')) return;
       const res = await fetch(`/api/admin/courses/${id}`, { method: 'DELETE' });
-      if (res.ok) location.reload();
+      if (!res.ok) return alert('刪除失敗，請稍後重試');
+      document.getElementById(`course-row-${id}`)?.remove();
+      document.getElementById('courseCount').textContent = `共 ${document.querySelectorAll('[id^="course-row-"]').length} 堂課程`;
     }
 
     // 管理者帳號操作

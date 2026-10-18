@@ -3,6 +3,7 @@ import base64
 import hashlib
 import json
 import secrets
+import re
 import time
 import urllib.error
 import urllib.parse
@@ -65,8 +66,14 @@ def resolve_session(request, data, secret):
             session = jwt.decode(cookie, secret, algorithms=["HS256"])
         except jwt.InvalidTokenError:
             return
+    needs_roster = request.method == "GET" and bool(re.fullmatch(r"/admin/courses/\d+/(attendance|leaves|pathdemy)", request.url.path))
+    needs_roster = needs_roster or (request.method == "POST" and bool(re.fullmatch(r"/api/admin/courses/\d+/pathdemy/import", request.url.path)))
     try:
-        profile = platform_request("/api/auth/me", session["access_token"])
+        if needs_roster:
+            context = platform_request("/api/auth/sso/roster?include_profile=true", session["access_token"])
+            profile = context["user"]
+        else:
+            profile = platform_request("/api/auth/me", session["access_token"])
     except HTTPException as error:
         if error.status_code == 401:
             return
@@ -76,9 +83,8 @@ def resolve_session(request, data, secret):
         request.state.sso_student = link_student(data, profile)
     if profile["account_type"] == "staff" and profile["role"] in ("admin", "teacher"):
         request.state.sso_admin = {**profile, "role": "admin", "platform_role": profile["role"], "status": "active"}
-        course_list_only = request.url.path == "/admin" and request.headers.get("x-platform-embedded") == "1"
-        if not course_list_only and (request.url.path.startswith("/admin") or request.url.path.startswith("/api/admin")):
-            for student in platform_request("/api/auth/sso/roster", session["access_token"]):
+        if needs_roster:
+            for student in context["students"]:
                 link_student(data, student)
 
 
