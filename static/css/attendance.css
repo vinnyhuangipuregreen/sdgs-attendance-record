@@ -19,11 +19,7 @@ body.attendance-platform { display: block; padding: 0; background: var(--ds-bg);
 .sdgs-shell .course-actions a:hover, .sdgs-shell .course-actions button:hover { background: var(--ds-green-ink); color: white; }
 .sdgs-shell .course-actions button:last-child { border-color: var(--ds-error); background: #fff1f2; color: var(--ds-error); }
 .sdgs-shell .course-actions button:last-child:hover { background: var(--ds-error); color: white; }
-@media (max-width: 800px) {
-  
-}
 @media (max-width: 520px) {
-  
   .attendance-platform > .ds-container { width: 100%; margin: 24px auto; }
   .attendance-platform.course-login > div { padding: 24px 20px; }
   .attendance-platform input:not([type="checkbox"]), .attendance-platform select, .attendance-platform textarea { font-size: 16px; }
