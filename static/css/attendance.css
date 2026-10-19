@@ -76,3 +76,6 @@ body.attendance-platform { display: block; padding: 0; background: var(--ds-bg);
  .course-dashboard .course-status > div { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px; }
  .course-dashboard .course-record-actions { grid-template-columns: minmax(0,1fr); }
 }
+
+.academic-year-badge { color:#12823d;font-size:14px;font-weight:700;line-height:1.5;flex-shrink:0; }
+@media(max-width:768px){.academic-year-badge{font-size:12px}}

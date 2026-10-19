@@ -62,13 +62,24 @@ class AttendanceStore:
         # Existing data is authoritative, including intentionally emptied lists.
         self.execute("INSERT OR IGNORE INTO attendance_state (id, version, payload) VALUES (1, 0, ?)",
                      (json.dumps(seed, ensure_ascii=False),))
+        self.execute("CREATE TABLE IF NOT EXISTS annual_attendance_state (id INTEGER PRIMARY KEY, version INTEGER NOT NULL, payload TEXT NOT NULL)")
 
-    def load(self):
-        rows, _ = self.execute("SELECT version, payload FROM attendance_state WHERE id=1")
+    def initialize_year(self, year_id):
+        if int(year_id) < 2:
+            raise ValueError("新學年度編號必須大於 1")
+        empty = {"admins": [], "students": [], "courses": [], "attendances": {}}
+        self.execute("INSERT OR IGNORE INTO annual_attendance_state (id,version,payload) VALUES (?,0,?)", (year_id,json.dumps(empty)))
+
+    def load(self, year_id=1):
+        table = "attendance_state" if year_id == 1 else "annual_attendance_state"
+        rows, _ = self.execute(f"SELECT version, payload FROM {table} WHERE id=?", (year_id,))
+        if not rows:
+            raise RuntimeError("此學年度課程資料尚未初始化")
         return int(rows[0][0]), json.loads(rows[0][1])
 
-    def save(self, version, data):
-        _, changed = self.execute("UPDATE attendance_state SET payload=?, version=version+1 WHERE id=1 AND version=?",
-                                  (json.dumps(data, ensure_ascii=False), version))
+    def save(self, version, data, year_id=1):
+        table = "attendance_state" if year_id == 1 else "annual_attendance_state"
+        _, changed = self.execute(f"UPDATE {table} SET payload=?, version=version+1 WHERE id=? AND version=?",
+                                  (json.dumps(data, ensure_ascii=False), year_id, version))
         if changed != 1:
             raise ConcurrentUpdate("資料已由其他人更新，請重新整理後再試，以免覆蓋最新資料")

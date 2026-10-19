@@ -104,15 +104,33 @@ async def persistent_course_data(request: Request, call_next):
     if request.url.path in {"/", "/healthz", "/sso/login", "/auth/sso/callback", "/sso/logout", "/logout"} or request.url.path.startswith("/static/"):
         return await call_next(request)
     try:
-        version, data = await run_in_threadpool(store.load)
+        await run_in_threadpool(resolve_session, request, {"students":[],"courses":[],"attendances":{}}, SECRET_KEY)
+    except HTTPException as error:
+        return JSONResponse(status_code=error.status_code, content={"error": error.detail})
+    year = getattr(request.state,"academic_year", {"id":1})
+    year_id = int(year["id"])
+    expected_year = request.headers.get("x-academic-year")
+    if expected_year and expected_year != str(year_id):
+        return JSONResponse(status_code=409, content={"error":"學年度已變更，請重新整理頁面後再操作。"})
+    requested_year = request.query_params.get("academic_year_id")
+    if requested_year and requested_year != str(year_id):
+        try:
+            requested_id = int(requested_year)
+        except ValueError:
+            return JSONResponse(status_code=400,content={"error":"學年度參數無效"})
+        return RedirectResponse("/sso/login?academic_year_id=" + str(requested_id), status_code=302)
+    try:
+        version, data = await run_in_threadpool(store.load, year_id)
     except (RuntimeError, OSError):
         return JSONResponse(status_code=503, content={"error": "課程資料庫暫時無法連線，請稍後再試"})
     request.state.db = data
     original = copy.deepcopy(data)
-    try:
-        await run_in_threadpool(resolve_session, request, data, SECRET_KEY)
-    except HTTPException as error:
-        return JSONResponse(status_code=error.status_code, content={"error": error.detail})
+    from api.sso import link_student
+    profile = getattr(request.state,"platform_profile",None)
+    if profile and profile["account_type"] == "student":
+        request.state.sso_student = link_student(data, profile)
+    for student in getattr(request.state,"platform_roster",[]):
+        link_student(data,student)
     if request.headers.get("authorization", "").startswith("Bearer ") and (request.url.path.startswith("/admin") or request.url.path.startswith("/api/admin")):
         if not get_current_admin(request):
             return JSONResponse(status_code=403, content={"error": "需要管理員或講師權限"})
@@ -123,7 +141,7 @@ async def persistent_course_data(request: Request, call_next):
     response = await call_next(request)
     if original is not None and response.status_code < 400 and data != original:
         try:
-            await run_in_threadpool(store.save, version, data)
+            await run_in_threadpool(store.save, version, data, year_id)
         except ConcurrentUpdate as error:
             return JSONResponse(status_code=409, content={"error": str(error)})
         except (RuntimeError, OSError):
@@ -137,6 +155,25 @@ async def healthz():
     except (RuntimeError, OSError):
         return JSONResponse(status_code=503, content={"status": "error", "database": DATABASE_NAME})
     return {"status": "ok", "database": DATABASE_NAME, "storage": "turso" if store.url else "sqlite"}
+
+@app.post("/api/admin/academic-years/initialize")
+async def initialize_academic_year(request: Request):
+    if not get_current_admin(request):
+        raise HTTPException(403,"需要管理權限")
+    item = await request.json()
+    year_id = int(item.get("id",0))
+    if year_id < 2:
+        raise HTTPException(400,"學年度編號無效")
+    await run_in_threadpool(store.initialize_year, year_id)
+    return {"success":True}
+
+@app.get("/api/admin/academic-years/{year_id}/dependencies")
+async def academic_year_dependencies(year_id: int, request: Request):
+    if not get_current_admin(request):
+        raise HTTPException(403,"需要管理權限")
+    _, data = await run_in_threadpool(store.load, year_id)
+    return {"[課程登錄]課程資料":len(data["courses"]), "[課程登錄]出席紀錄":len(data["attendances"]),
+            "[課程登錄]學員映射資料":len(data["students"])}
 
 # --- 認證輔助函式 ---
 def get_current_student(request: Request):

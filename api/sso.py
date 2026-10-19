@@ -79,6 +79,9 @@ def resolve_session(request, data, secret):
             return
         raise
     request.state.platform_token = session["access_token"]
+    request.state.academic_year = profile.get("academic_year", {"id":1,"year":2026,"start_month":"202609","end_month":"202706"})
+    request.state.platform_profile = profile
+    request.state.platform_roster = context["students"] if needs_roster else []
     if profile["account_type"] == "student":
         request.state.sso_student = link_student(data, profile)
     if profile["account_type"] == "staff" and profile["role"] in ("admin", "teacher"):
@@ -90,11 +93,13 @@ def resolve_session(request, data, secret):
 
 def install_sso(app, secret, secure):
     @app.get("/sso/login")
-    def start_login(admin: bool = False):
+    def start_login(admin: bool = False, academic_year_id: int | None = None):
         state, verifier = secrets.token_urlsafe(32), secrets.token_urlsafe(48)
         challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).decode().rstrip("=")
-        response = RedirectResponse(ORIGIN + "/sso/authorize?" + urllib.parse.urlencode({
-            "client_id": "attendance", "redirect_uri": CALLBACK, "state": state, "code_challenge": challenge, "login_type": "staff" if admin else "student"}), status_code=302)
+        params={"client_id": "attendance", "redirect_uri": CALLBACK, "state": state, "code_challenge": challenge, "login_type": "staff" if admin else "student"}
+        if academic_year_id is not None:
+            params["academic_year_id"]=academic_year_id
+        response = RedirectResponse(ORIGIN + "/sso/authorize?" + urllib.parse.urlencode(params), status_code=302)
         pending = jwt.encode({"state": state, "verifier": verifier, "admin": admin, "exp": int(time.time()) + 300}, secret, algorithm="HS256")
         response.set_cookie("sso_pending", pending, max_age=300, httponly=True, secure=secure, samesite="lax")
         response.headers["Cache-Control"] = "no-store"
