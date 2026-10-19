@@ -47,7 +47,11 @@ class CourseSsoTests(unittest.TestCase):
         self.assertEqual(response.headers["location"],"/dashboard")
         self.assertIn("HttpOnly",response.headers["set-cookie"])
         self.assertEqual(self.client.get("/dashboard").status_code,200)
-        self.assertEqual(self.client.get("/",follow_redirects=False).headers["location"],"/sso/login")
+        self.remote_mock.reset_mock()
+        response = self.client.get("/")
+        self.assertEqual(response.url.path, "/dashboard")
+        self.assertNotIn("/sso/authorize", str(response.url))
+        self.assertEqual([call.args[0] for call in self.remote_mock.call_args_list], ["/api/auth/me"])
 
     def test_csrf_state_tampering_and_expired_session_are_rejected(self):
         self.begin()
