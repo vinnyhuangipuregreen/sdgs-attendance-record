@@ -71,7 +71,7 @@
 
             <!-- 當前狀態徽章 -->
             <div class="course-status">
-              {% if course.status == 'SIGNED_IN' %}
+              {% if course.signed %}
                 <div class="flex flex-wrap justify-end items-center gap-2"><span class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">✓ 已簽到</span><time class="text-xs text-gray-600">{{ course.signed_at }}</time></div>
               {% endif %}
               {% if course.status == 'ON_LEAVE' or course.leave_at %}
@@ -89,7 +89,7 @@
           <!-- 操作按鈕群組 (簽到、請假、補課登錄) -->
           <div class="course-record-actions">
             {# 1. 簽到按鈕 #}
-            {% if course.status == 'SIGNED_IN' %}
+            {% if course.signed %}
               <button disabled class="w-full py-2.5 bg-emerald-50 text-emerald-700 border border-emerald-200 text-sm font-semibold rounded-xl cursor-not-allowed">✓ 已簽到</button>
             {% elif course.status in ['ON_LEAVE', 'MAKEUP_DONE'] %}
               <button disabled class="w-full py-2.5 bg-gray-100 text-gray-400 text-sm font-medium rounded-xl cursor-not-allowed">簽到</button>

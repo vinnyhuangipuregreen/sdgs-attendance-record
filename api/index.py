@@ -6,6 +6,7 @@ from starlette.concurrency import run_in_threadpool
 from api.storage import AttendanceStore, ConcurrentUpdate, DATABASE_NAME
 from api.sso import resolve_session, install_sso
 from api.attendance import taiwan_now, record_view, apply_action
+from api.record_import import RecordImport, import_records
 from pathlib import Path
 from datetime import datetime
 from typing import Optional
@@ -124,6 +125,7 @@ async def persistent_course_data(request: Request, call_next):
     except (RuntimeError, OSError):
         return JSONResponse(status_code=503, content={"error": "課程資料庫暫時無法連線，請稍後再試"})
     request.state.db = data
+    request.state.db_version = version
     original = copy.deepcopy(data)
     from api.sso import link_student, sync_roster
     profile = getattr(request.state,"platform_profile",None)
@@ -212,7 +214,7 @@ async def dashboard_page(request: Request):
         {
             "student": student,
             "stats": {
-                "signed": sum(c["status"] == "SIGNED_IN" for c in courses_view),
+                "signed": sum(c["signed"] for c in courses_view),
                 "leave": sum(c["status"] == "ON_LEAVE" or bool(c["leave_at"]) for c in courses_view),
                 "makeup": sum(c["status"] == "MAKEUP_DONE" for c in courses_view),
                 "absent": sum(c["status"] == "ABSENT" for c in courses_view)
@@ -296,9 +298,30 @@ def course_record_counts(data):
         status = record.get("status")
         if course_id in counts and status in counts[course_id]:
             counts[course_id][status] += 1
+            if status != "SIGNED_IN" and record.get("signed_at"):
+                counts[course_id]["SIGNED_IN"] += 1
             if status == "MAKEUP_DONE" and record.get("leave_at"):
                 counts[course_id]["ON_LEAVE"] += 1
     return counts
+
+
+@app.get("/api/admin/attendance/export")
+async def export_attendance_records(request: Request):
+    if not get_current_admin(request):
+        raise HTTPException(403, "需要管理權限")
+    return {"version": request.state.db_version, "academic_year": request.state.academic_year,
+            **{key: request.state.db[key] for key in ("students", "courses", "attendances")}}
+
+
+@app.post("/api/admin/attendance/import")
+async def import_attendance_records(request: Request, payload: RecordImport):
+    admin = get_current_admin(request)
+    if not admin:
+        raise HTTPException(403, "需要管理權限")
+    if payload.version != request.state.db_version:
+        raise HTTPException(409, "資料已更新，請重新備份並核對後再匯入")
+    count = import_records(request.state.db, payload.records, admin["email"])
+    return {"success": True, "count": count, "course_counts": course_record_counts(request.state.db)}
 
 # ==========================================
 # 1. 學員名單管理：範本下載 & Excel 匯入校驗
@@ -700,9 +723,13 @@ async def cancel_makeup(course_id: int, student_id: int, request: Request):
     record = request.state.db["attendances"].get(key)
     if record and record.get("leave_at"):
         request.state.db["attendances"][key] = {"status": "ON_LEAVE", "reason": record.get("reason", ""),
-            "leave_at": record["leave_at"], "updated_at": record["leave_at"]}
+            "leave_at": record["leave_at"], "updated_at": record["leave_at"],
+            **({"signed_at": record["signed_at"]} if record.get("signed_at") else {})}
     elif record:
-        del request.state.db["attendances"][key]
+        if record.get("signed_at"):
+            request.state.db["attendances"][key] = {"status": "SIGNED_IN", "signed_at": record["signed_at"]}
+        else:
+            del request.state.db["attendances"][key]
     return {"success": True}
 
 # ==========================================
@@ -716,7 +743,7 @@ async def course_attendance_page(course_id: int, request: Request):
     
     student_records = []
     now = taiwan_now()
-    signed_count = sum(1 for s in request.state.db["students"] if request.state.db["attendances"].get(f"{s['id']}_{course['id']}", {}).get("status") == "SIGNED_IN")
+    signed_count = course_record_counts(request.state.db)[course_id]["SIGNED_IN"]
     for s in request.state.db["students"]:
         key = f"{s['id']}_{course['id']}"
         rec = request.state.db["attendances"].get(key)
@@ -724,7 +751,8 @@ async def course_attendance_page(course_id: int, request: Request):
         student_records.append({
             "id": s["id"], "name": s["name"], "email": s["email"],
             "email_pathdemy": s.get("email_pathdemy", s["email"]), "phone": s["phone"],
-            "status": status, "signed_at": rec.get("signed_at", "-") if rec else "-"
+            "status": status, "signed_at": rec.get("signed_at", "-") if rec else "-",
+            "signed": status == "SIGNED_IN" or bool(rec and rec.get("signed_at"))
         })
     return render_template(
         "course_attendance.html",

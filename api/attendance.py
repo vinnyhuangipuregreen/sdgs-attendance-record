@@ -33,6 +33,7 @@ def record_view(course, record, now):
     if closed and status == "PENDING":
         status = "ABSENT"
     return {**record, "status": status, "closed": closed,
+            "signed": status == "SIGNED_IN" or bool(record.get("signed_at")),
             "signed_at": record.get("signed_at", ""),
             "leave_at": record.get("leave_at") or (record.get("updated_at", "") if record.get("status") == "ON_LEAVE" else ""),
             "makeup_date": record.get("makeup_date", "")}

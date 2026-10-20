@@ -118,14 +118,14 @@
                 data-email="{{ r.email|lower }}"
                 data-pathdemy="{{ r.email_pathdemy|lower }}"
                 data-phone="{{ r.phone }}"
-                data-status="{% if r.status == 'SIGNED_IN' %}SIGNED_IN{% else %}NOT_SIGNED{% endif %}">
+                data-status="{% if r.signed %}SIGNED_IN{% else %}NOT_SIGNED{% endif %}">
               <td class="p-3.5 text-gray-400 font-mono text-xs">{{ r.id }}</td>
               <td class="p-3.5 font-semibold text-gray-800">{{ r.name }}</td>
               <td class="p-3.5 text-gray-600 text-xs">{{ r.email }}</td>
               <td class="p-3.5 text-blue-700 font-medium text-xs">{{ r.email_pathdemy }}</td>
               <td class="p-3.5 text-gray-600 text-xs">{{ r.phone }}</td>
               <td class="p-3.5">
-                {% if r.status == 'SIGNED_IN' %}
+                {% if r.signed %}
                   <span class="px-3 py-1 bg-[#E8F5E9] text-[#2E7D32] text-xs rounded-full font-bold inline-block">
                     ✓ 已簽到
                   </span>
