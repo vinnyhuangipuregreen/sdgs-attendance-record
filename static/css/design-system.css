@@ -57,6 +57,7 @@ body:has(#tabPane_admin:not(.hidden) #adminSubPane_attendance:not(.hidden)) > .p
 .platform-header-inner { max-width: var(--layout-max); padding: 18px var(--layout-pad); margin: auto; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
 .platform-brand { display: flex; align-items: center; gap: 15px; border: 0; background: transparent; padding: 0; text-align: left; color: var(--ds-text); text-decoration: none; }
 .brand-globe { width: 58px; height: 58px; display: grid; place-items: center; border-radius: 50%; background: #e3f7ed; font-size: 39px; box-shadow: inset 0 0 0 1px #c8edda; flex-shrink: 0; }
+.brand-logo { object-fit: contain; border-radius: 0; background: transparent; box-shadow: none; }
 .platform-brand strong { display: block; font-size: 24px; line-height: 1.35; font-weight: 700; letter-spacing: .02em; color: #102b2a; }
 .platform-brand small { display: block; color: var(--ds-muted); margin-top: 5px; font-size: 12px; letter-spacing: .04em; }
 .platform-account { display: flex; gap: 12px; align-items: center; flex-shrink: 0; font-size: 13px; font-weight: 700; }
