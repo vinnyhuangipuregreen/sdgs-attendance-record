@@ -63,7 +63,7 @@ class PersistenceTests(unittest.TestCase):
 
     def platform_response(self, path, token=None, payload=None):
         if path == "/api/auth/sso/roster?include_profile=true":
-            return {"user":self.platform_response("/api/auth/me", token), "students":[]}
+            return {"user":self.platform_response("/api/auth/me", token), "students":[self.platform_response("/api/auth/me", "test-student")]}
         if path == "/api/auth/sso/roster": return []
         if token == "test-admin":
             return {"id":1,"name":"Admin","email":"admin@test.invalid","email_backup":"","phone":"0901","role":"admin","account_type":"staff"}

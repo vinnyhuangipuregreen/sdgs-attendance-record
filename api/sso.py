@@ -52,6 +52,14 @@ def link_student(data, profile):
     return linked
 
 
+def sync_roster(data, roster):
+    students = [link_student(data, profile) for profile in roster]
+    active_ids = {str(student["id"]) for student in students}
+    data["students"] = students
+    data["attendances"] = {key: record for key, record in data["attendances"].items()
+                           if key.split("_", 1)[0] in active_ids}
+
+
 def resolve_session(request, data, secret):
     request.state.sso_student = None
     request.state.sso_admin = None
@@ -81,7 +89,7 @@ def resolve_session(request, data, secret):
     request.state.platform_token = session["access_token"]
     request.state.academic_year = profile.get("academic_year", {"id":1,"year":2026,"start_month":"202609","end_month":"202706"})
     request.state.platform_profile = profile
-    request.state.platform_roster = context["students"] if needs_roster else []
+    request.state.platform_roster = context["students"] if needs_roster else None
     if profile["account_type"] == "student":
         request.state.sso_student = link_student(data, profile)
     if profile["account_type"] == "staff" and profile["role"] in ("admin", "teacher"):

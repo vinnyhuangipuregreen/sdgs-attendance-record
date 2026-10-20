@@ -125,12 +125,13 @@ async def persistent_course_data(request: Request, call_next):
         return JSONResponse(status_code=503, content={"error": "課程資料庫暫時無法連線，請稍後再試"})
     request.state.db = data
     original = copy.deepcopy(data)
-    from api.sso import link_student
+    from api.sso import link_student, sync_roster
     profile = getattr(request.state,"platform_profile",None)
     if profile and profile["account_type"] == "student":
         request.state.sso_student = link_student(data, profile)
-    for student in getattr(request.state,"platform_roster",[]):
-        link_student(data,student)
+    roster = getattr(request.state, "platform_roster", None)
+    if roster is not None:
+        sync_roster(data, roster)
     if request.headers.get("authorization", "").startswith("Bearer ") and (request.url.path.startswith("/admin") or request.url.path.startswith("/api/admin")):
         if not get_current_admin(request):
             return JSONResponse(status_code=403, content={"error": "需要管理員或講師權限"})
