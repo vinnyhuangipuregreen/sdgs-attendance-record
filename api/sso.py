@@ -75,7 +75,7 @@ def resolve_session(request, data, secret):
         except jwt.InvalidTokenError:
             return
     needs_roster = request.method == "GET" and bool(re.fullmatch(r"/admin/courses/\d+/(attendance|leaves|pathdemy)", request.url.path))
-    needs_roster = needs_roster or (request.method == "GET" and bool(re.fullmatch(r"/api/admin/courses/\d+/attendance/export", request.url.path)))
+    needs_roster = needs_roster or (request.method == "GET" and bool(re.fullmatch(r"/api/admin/courses/\d+/(attendance|leaves)/export", request.url.path)))
     needs_roster = needs_roster or (request.method == "POST" and bool(re.fullmatch(r"/api/admin/courses/\d+/pathdemy/import", request.url.path)))
     try:
         if needs_roster:

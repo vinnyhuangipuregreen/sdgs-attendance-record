@@ -23,3 +23,18 @@ test('export link includes the current filters and preserves the embedded admin 
   assert.equal(new URL(link.href).searchParams.getAll('status').length, 1);
   assert.equal(new URL(link.href).searchParams.get('status'), 'ALL');
 });
+
+test('leave export includes current compound filters and works on empty rosters', () => {
+  const template = fs.readFileSync(require('node:path').join(__dirname, '../templates/course_leaves.html'), 'utf8');
+  const fields = {filterName: ' 學員乙 ', filterEmail: 'makeup@example.invalid', filterPhone: '0912'};
+  const context = vm.createContext({URL, document: {getElementById: id => ({value: fields[id]})}});
+  vm.runInContext(template.slice(template.indexOf('function updateLeaveExport('), template.indexOf('function applyFilter(')), context);
+  const link = {href: 'https://example.invalid/attendance-admin/api/admin/courses/1/leaves/export'};
+  context.updateLeaveExport(link);
+  const url = new URL(link.href);
+  assert.equal(url.pathname, '/attendance-admin/api/admin/courses/1/leaves/export');
+  assert.equal(url.searchParams.get('name'), '學員乙');
+  assert.equal(url.searchParams.get('email'), fields.filterEmail);
+  assert.equal(url.searchParams.get('phone'), fields.filterPhone);
+  assert.ok(template.indexOf('id="exportLeavesBtn"') < template.indexOf('{% if total_count == 0 %}'));
+});

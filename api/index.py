@@ -812,22 +812,60 @@ async def course_attendance_page(course_id: int, request: Request):
         request
     )
 
-@app.get("/admin/courses/{course_id}/leaves", response_class=HTMLResponse)
-async def course_leaves_page(course_id: int, request: Request):
-    if not get_current_admin(request): return RedirectResponse(url="/admin/login", status_code=302)
-    course = next((c for c in request.state.db["courses"] if c["id"] == course_id), None)
-    if not course: return RedirectResponse(url="/admin", status_code=302)
-    
+def course_leave_records(data, course):
     leave_records = []
-    for s in request.state.db["students"]:
+    for s in data["students"]:
         key = f"{s['id']}_{course['id']}"
-        rec = request.state.db["attendances"].get(key)
+        rec = data["attendances"].get(key)
         if rec and (rec.get("status") == "ON_LEAVE" or rec.get("leave_at")):
             leave_records.append({
                 "student_id": s["id"], "name": s["name"], "email": s["email"],
                 "email_pathdemy": s.get("email_pathdemy", s["email"]), "phone": s["phone"],
                 "reason": rec.get("reason", "未填寫"), "updated_at": rec.get("leave_at") or rec.get("updated_at", "-")
             })
+    return leave_records
+
+
+@app.get("/api/admin/courses/{course_id}/leaves/export")
+async def export_course_leaves(course_id: int, request: Request, name: str = "", email: str = "", phone: str = ""):
+    if not get_current_admin(request):
+        raise HTTPException(403, "需要管理權限")
+    course = next((c for c in request.state.db["courses"] if c["id"] == course_id), None)
+    if not course:
+        raise HTTPException(404, "查無此課程")
+    name, email, phone = name.strip().lower(), email.strip().lower(), phone.strip()
+    rows = [r for r in course_leave_records(request.state.db, course)
+            if name in r["name"].lower() and phone in r["phone"]
+            and (email in r["email"].lower() or email in r["email_pathdemy"].lower())]
+    workbook = openpyxl.Workbook()
+    sheet = workbook.active
+    sheet.title = "請假名冊"
+    sheet.append(["學員姓名", "Email", "Email(補課平台)", "聯絡電話", "請假原因", "申請時間"])
+    for row in rows:
+        sheet.append([row[key] for key in ("name", "email", "email_pathdemy", "phone", "reason", "updated_at")])
+    for row in sheet:
+        for cell in row:
+            if isinstance(cell.value, str):
+                cell.data_type = "s"
+    sheet.freeze_panes = "A2"
+    sheet.auto_filter.ref = sheet.dimensions
+    for column, width in zip("ABCDEF", (20, 36, 36, 18, 48, 24)):
+        sheet.column_dimensions[column].width = width
+    stream = io.BytesIO()
+    workbook.save(stream)
+    title = re.sub(r'[\\/:*?"<>|\x00-\x1f]', "_", course["title"]).strip(" .")[:150]
+    timestamp = taiwan_now().strftime("%Y%m%d%H%M%S")
+    filename = f"{course_id}_{title}_請假_{timestamp}.xlsx"
+    return Response(content=stream.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"Content-Disposition": "attachment; filename*=UTF-8''" + quote(filename), "Cache-Control": "no-store"})
+
+
+@app.get("/admin/courses/{course_id}/leaves", response_class=HTMLResponse)
+async def course_leaves_page(course_id: int, request: Request):
+    if not get_current_admin(request): return RedirectResponse(url="/admin/login", status_code=302)
+    course = next((c for c in request.state.db["courses"] if c["id"] == course_id), None)
+    if not course: return RedirectResponse(url="/admin", status_code=302)
+    leave_records = course_leave_records(request.state.db, course)
     return render_template(
         "course_leaves.html",
         {

@@ -74,6 +74,10 @@
         </div>
       </div>
 
+      <div class="flex justify-end">
+        <a id="exportLeavesBtn" href="/api/admin/courses/{{ course.id }}/leaves/export" onclick="updateLeaveExport(this)" download class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 text-white text-sm font-semibold hover:bg-slate-700">📤 匯出資料</a>
+      </div>
+
       <!-- 表格：包含 Email(補課平台) -->
       <div class="pt-2">
         {% if total_count == 0 %}
@@ -130,6 +134,14 @@
   </div>
 
   <script>
+    function updateLeaveExport(link) {
+      const url = new URL(link.href);
+      for (const [parameter, id] of [['name', 'filterName'], ['email', 'filterEmail'], ['phone', 'filterPhone']]) {
+        url.searchParams.set(parameter, document.getElementById(id).value.trim());
+      }
+      link.href = url.href;
+    }
+
     function applyFilter() {
       const nameKeyword = document.getElementById('filterName').value.trim().toLowerCase();
       const emailKeyword = document.getElementById('filterEmail').value.trim().toLowerCase();
