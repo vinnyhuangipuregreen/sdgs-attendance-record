@@ -581,17 +581,11 @@ async def download_pathdemy_sample_excel(request: Request, course_id: Optional[i
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
-# 3.2 補課狀況頁面路由 (精準提供所選課程資訊)
-@app.get("/admin/courses/{course_id}/pathdemy", response_class=HTMLResponse)
-async def course_pathdemy_page(course_id: int, request: Request):
-    if not get_current_admin(request): return RedirectResponse(url="/admin/login", status_code=302)
-    course = next((c for c in request.state.db["courses"] if c["id"] == course_id), None)
-    if not course: return RedirectResponse(url="/admin", status_code=302)
-    
+def course_makeup_records(data, course):
     makeup_records = []
-    for s in request.state.db["students"]:
+    for s in data["students"]:
         key = f"{s['id']}_{course['id']}"
-        rec = request.state.db["attendances"].get(key)
+        rec = data["attendances"].get(key)
         if rec and rec.get("status") == "MAKEUP_DONE":
             makeup_records.append({
                 "id": s["id"], 
@@ -604,6 +598,17 @@ async def course_pathdemy_page(course_id: int, request: Request):
                 "note": rec.get("note", "管理員批次匯入"),
                 "imported_by": rec.get("imported_by", "")
             })
+    return makeup_records
+
+
+# 3.2 補課狀況頁面路由 (精準提供所選課程資訊)
+@app.get("/admin/courses/{course_id}/pathdemy", response_class=HTMLResponse)
+async def course_pathdemy_page(course_id: int, request: Request):
+    if not get_current_admin(request): return RedirectResponse(url="/admin/login", status_code=302)
+    course = next((c for c in request.state.db["courses"] if c["id"] == course_id), None)
+    if not course: return RedirectResponse(url="/admin", status_code=302)
+
+    makeup_records = course_makeup_records(request.state.db, course)
     return render_template(
         "course_pathdemy.html",
         {
@@ -614,6 +619,43 @@ async def course_pathdemy_page(course_id: int, request: Request):
         },
         request
     )
+
+@app.get("/api/admin/courses/{course_id}/pathdemy/export")
+async def export_course_makeup(course_id: int, request: Request, name: str = "", email: str = "", phone: str = "",
+                               start_date: str = "", end_date: str = ""):
+    if not get_current_admin(request):
+        raise HTTPException(403, "需要管理權限")
+    course = next((c for c in request.state.db["courses"] if c["id"] == course_id), None)
+    if not course:
+        raise HTTPException(404, "查無此課程")
+    name, email, phone = name.strip().lower(), email.strip().lower(), phone.strip()
+    rows = [r for r in course_makeup_records(request.state.db, course)
+            if name in r["name"].lower() and phone in r["phone"]
+            and (email in r["email"].lower() or email in r["email_pathdemy"].lower())
+            and (not start_date or r["makeup_date"][:10].replace("/", "-") >= start_date)
+            and (not end_date or r["makeup_date"][:10].replace("/", "-") <= end_date)]
+    workbook = openpyxl.Workbook()
+    sheet = workbook.active
+    sheet.title = "補課名冊"
+    sheet.append(["學員姓名", "Email", "Email(補課平台)", "聯絡電話", "請假時間", "補課時間"])
+    for row in rows:
+        sheet.append([row["name"], row["email"], row["email_pathdemy"], row["phone"], row["leave_at"] or "-", row["makeup_date"]])
+    for row in sheet:
+        for cell in row:
+            if isinstance(cell.value, str):
+                cell.data_type = "s"
+    sheet.freeze_panes = "A2"
+    sheet.auto_filter.ref = sheet.dimensions
+    for column, width in zip("ABCDEF", (20, 36, 36, 18, 24, 24)):
+        sheet.column_dimensions[column].width = width
+    stream = io.BytesIO()
+    workbook.save(stream)
+    title = re.sub(r'[\\/:*?"<>|\x00-\x1f]', "_", course["title"]).strip(" .")[:150]
+    timestamp = taiwan_now().strftime("%Y%m%d%H%M%S")
+    filename = f"{course_id}_{title}_補課_{timestamp}.xlsx"
+    return Response(content=stream.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"Content-Disposition": "attachment; filename*=UTF-8''" + quote(filename), "Cache-Control": "no-store"})
+
 
 # 3.3 匯入補課 Excel (嚴格只針對選擇的該堂課程匯入，不影響其他課程)
 @app.post("/api/admin/courses/{course_id}/pathdemy/import")

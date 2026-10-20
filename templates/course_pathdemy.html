@@ -167,6 +167,10 @@
         </div>
       </div>
 
+      <div class="flex justify-end">
+        <a id="exportMakeupBtn" href="/api/admin/courses/{{ course.id }}/pathdemy/export" onclick="updateMakeupExport(this)" download class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 text-white text-sm font-semibold hover:bg-slate-700">📤 匯出資料</a>
+      </div>
+
       <!-- 提示訊息 Toast -->
       <div id="toastMessage" class="hidden p-3.5 rounded-xl text-sm flex items-center justify-between transition-all"></div>
 
@@ -340,6 +344,14 @@
     function renderAll() {
       filterRecords();
       renderFrontEndPreview();
+    }
+
+    function updateMakeupExport(link) {
+      const url = new URL(link.href);
+      for (const [parameter, id] of [['name', 'searchName'], ['email', 'searchEmail'], ['phone', 'searchPhone'], ['start_date', 'searchStartDate'], ['end_date', 'searchEndDate']]) {
+        url.searchParams.set(parameter, document.getElementById(id).value.trim());
+      }
+      link.href = url.href;
     }
 
     // 複合查詢過濾函式
