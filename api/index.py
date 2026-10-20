@@ -2,6 +2,9 @@ import os
 import io
 import csv
 import copy
+import re
+from urllib.parse import quote
+from typing import Literal
 from starlette.concurrency import run_in_threadpool
 from api.storage import AttendanceStore, ConcurrentUpdate, DATABASE_NAME
 from api.sso import resolve_session, install_sso
@@ -11,7 +14,7 @@ from pathlib import Path
 from datetime import datetime
 from typing import Optional
 from fastapi import FastAPI, Request, Form, HTTPException, UploadFile, File
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, FileResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, FileResponse, Response
 from fastapi.templating import Jinja2Templates
 import openpyxl
 
@@ -735,18 +738,12 @@ async def cancel_makeup(course_id: int, student_id: int, request: Request):
 # ==========================================
 # 4. 其他考勤與 CRUD 路由
 # ==========================================
-@app.get("/admin/courses/{course_id}/attendance", response_class=HTMLResponse)
-async def course_attendance_page(course_id: int, request: Request):
-    if not get_current_admin(request): return RedirectResponse(url="/admin/login", status_code=302)
-    course = next((c for c in request.state.db["courses"] if c["id"] == course_id), None)
-    if not course: return RedirectResponse(url="/admin", status_code=302)
-    
+def attendance_records(data, course):
     student_records = []
     now = taiwan_now()
-    signed_count = course_record_counts(request.state.db)[course_id]["SIGNED_IN"]
-    for s in request.state.db["students"]:
+    for s in data["students"]:
         key = f"{s['id']}_{course['id']}"
-        rec = request.state.db["attendances"].get(key)
+        rec = data["attendances"].get(key)
         status = record_view(course, rec, now)["status"]
         student_records.append({
             "id": s["id"], "name": s["name"], "email": s["email"],
@@ -754,6 +751,55 @@ async def course_attendance_page(course_id: int, request: Request):
             "status": status, "signed_at": rec.get("signed_at", "-") if rec else "-",
             "signed": status == "SIGNED_IN" or bool(rec and rec.get("signed_at"))
         })
+    return student_records
+
+
+@app.get("/api/admin/courses/{course_id}/attendance/export")
+async def export_course_attendance(course_id: int, request: Request, name: str = "", email: str = "",
+                                   phone: str = "", status: Literal["ALL", "SIGNED_IN", "NOT_SIGNED"] = "ALL"):
+    if not get_current_admin(request):
+        raise HTTPException(403, "需要管理權限")
+    course = next((c for c in request.state.db["courses"] if c["id"] == course_id), None)
+    if not course:
+        raise HTTPException(404, "查無此課程")
+    name, email, phone = name.strip().lower(), email.strip().lower(), phone.strip()
+    rows = [r for r in attendance_records(request.state.db, course)
+            if name in r["name"].lower() and phone in r["phone"]
+            and (email in r["email"].lower() or email in r["email_pathdemy"].lower())
+            and (status == "ALL" or r["signed"] == (status == "SIGNED_IN"))]
+    workbook = openpyxl.Workbook()
+    sheet = workbook.active
+    sheet.title = "簽到名冊"
+    sheet.append(["ID", "姓名", "Email", "Email(補課平台)", "聯絡電話", "簽到狀況", "簽到時間"])
+    labels = {"ABSENT": "未出席", "ON_LEAVE": "已請假", "MAKEUP_DONE": "已補課", "PENDING": "未簽到"}
+    for row in rows:
+        sheet.append([row["id"], row["name"], row["email"], row["email_pathdemy"], row["phone"],
+                      "已簽到" if row["signed"] else labels.get(row["status"], "未簽到"), row["signed_at"]])
+    for row in sheet:
+        for cell in row:
+            if isinstance(cell.value, str):
+                cell.data_type = "s"
+    sheet.freeze_panes = "A2"
+    sheet.auto_filter.ref = sheet.dimensions
+    for column, width in zip("ABCDEFG", (10, 20, 36, 36, 18, 16, 24)):
+        sheet.column_dimensions[column].width = width
+    stream = io.BytesIO()
+    workbook.save(stream)
+    stream.seek(0)
+    title = re.sub(r'[\\/:*?"<>|\x00-\x1f]', "_", course["title"]).strip(" .")[:150]
+    timestamp = taiwan_now().strftime("%Y%m%d%H%M%S")
+    filename = f"{course_id}_{title}_簽到_{timestamp}.xlsx"
+    return Response(content=stream.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"Content-Disposition": "attachment; filename*=UTF-8''" + quote(filename), "Cache-Control": "no-store"})
+
+
+@app.get("/admin/courses/{course_id}/attendance", response_class=HTMLResponse)
+async def course_attendance_page(course_id: int, request: Request):
+    if not get_current_admin(request): return RedirectResponse(url="/admin/login", status_code=302)
+    course = next((c for c in request.state.db["courses"] if c["id"] == course_id), None)
+    if not course: return RedirectResponse(url="/admin", status_code=302)
+    student_records = attendance_records(request.state.db, course)
+    signed_count = sum(r["signed"] for r in student_records)
     return render_template(
         "course_attendance.html",
         {
