@@ -1,4 +1,4 @@
-{% if request.headers.get("x-platform-embedded") != "1" %}<footer class="platform-footer"><div class="platform-footer-inner"><span>BLIA SDGs 社會影響力系統</span><span>實踐永續 × 連動分析 × 行動改變 × 共創未來</span></div></footer>{% endif %}
+{% if request.headers.get("x-platform-embedded") != "1" %}<footer class="platform-footer"><div class="platform-footer-inner"><span>佛光永續學院</span><span>實踐永續 × 連動分析 × 行動改變 × 共創未來</span></div></footer>{% endif %}
 <script>
 (() => {
   const renderedYear = {{ request.state.academic_year.id if request.state.academic_year else 1 }};
