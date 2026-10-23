@@ -32,6 +32,13 @@ class CheckinWindowTests(unittest.TestCase):
         view = record_view(legacy, None, datetime(2026,10,23,18,0,tzinfo=TAIWAN))
         self.assertEqual((view["checkin_start"], view["checkin_end"]), ("18:00", "21:30"))
         self.assertNotIn("checkin_end", legacy)
+    def test_inconsistent_legacy_opening_uses_existing_class_window_without_mutating_data(self):
+        legacy = {"id":13,"title":"實地參訪","course_date":"2026/12/08","course_time":"13:30-16:30","open_time":"2026-12-08 18:00:00"}
+        original = dict(legacy)
+        view = record_view(legacy,None,datetime(2026,12,8,14,tzinfo=TAIWAN))
+        self.assertEqual((view["checkin_start"],view["checkin_end"]),("13:30","16:30"))
+        self.assertEqual(legacy, original)
+
 
 class CourseEditorTests(unittest.TestCase):
     setUp = fixtures.CourseSsoTests.setUp

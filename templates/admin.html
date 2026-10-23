@@ -162,7 +162,7 @@
                     <a href="/admin/courses/{{ c.id }}/attendance" class="px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-lg text-xs font-medium hover:bg-emerald-100">簽到</a>
                     <a href="/admin/courses/{{ c.id }}/leaves" class="px-2.5 py-1 bg-amber-50 text-amber-700 rounded-lg text-xs font-medium hover:bg-amber-100">請假</a>
                     <a href="/admin/courses/{{ c.id }}/pathdemy" class="px-2.5 py-1 bg-blue-50 text-[#15803D] rounded-lg text-xs font-medium hover:bg-blue-100">補課</a>
-                    <button onclick="editCourse({{ c.id }}, '{{ c.title }}', '{{ c.course_date }}', '{{ c.course_time }}', '{{ c.open_time }}', '{{ checkin_window(c)[1].strftime("%H:%M") }}')" class="text-xs text-gray-500 hover:underline ml-1">修改</button>
+                    <button onclick="editCourse({{ c.id }}, '{{ c.title }}', '{{ c.course_date }}', '{{ c.course_time }}', '{{ c.course_date.replace("/", "-") }} {{ checkin_window(c)[0].strftime("%H:%M") }}:00', '{{ checkin_window(c)[1].strftime("%H:%M") }}')" class="text-xs text-gray-500 hover:underline ml-1">修改</button>
                     <button onclick="deleteCourse({{ c.id }})" class="text-xs text-red-600 hover:underline">刪除</button>
                   </td>
                 </tr>
@@ -459,7 +459,8 @@
       const [start, end] = ctime.split('-');
       document.getElementById('modalCourseStart').value = start;
       document.getElementById('modalCourseEnd').value = end;
-      document.getElementById('modalCheckinStart').value = otime.split(' ').at(-1).slice(0, 5);
+      const opening = otime.split(' ').at(-1).slice(0, 5);
+      document.getElementById('modalCheckinStart').value = !checkinEnd && opening >= end ? start : opening;
       document.getElementById('modalCheckinEnd').value = checkinEnd || end;
       document.getElementById('courseModalTitle').innerText = '修改課程資料';
       document.getElementById('courseModal').classList.remove('hidden');

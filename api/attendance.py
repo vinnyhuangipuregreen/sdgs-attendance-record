@@ -31,6 +31,8 @@ def checkin_window(course):
         starts = datetime.strptime(f"{day} {start}", "%Y-%m-%d %H:%M").replace(tzinfo=TAIWAN)
         ends = datetime.strptime(f"{day} {end}", "%Y-%m-%d %H:%M").replace(tzinfo=TAIWAN)
         if ends <= starts:
+            if not course.get("checkin_start") and not course.get("checkin_end"):
+                return class_start, class_end
             raise ValueError()
         return starts, ends
     except (ValueError, TypeError, AttributeError):
