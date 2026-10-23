@@ -27,7 +27,27 @@ async function sendAttendance(action, courseId, message, reason) {
   }
 }
 
+function refreshCheckinButtons(now = Date.now()) {
+  document.querySelectorAll('[data-checkin-end]').forEach(button => {
+    if (now > Date.parse(button.dataset.checkinEnd)) {
+      button.disabled = true;
+      button.className = 'w-full py-2.5 bg-gray-100 text-gray-400 text-sm font-medium rounded-xl cursor-not-allowed';
+    }
+  });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  refreshCheckinButtons();
+  setInterval(refreshCheckinButtons, 1000);
+});
+
 async function doCheckin(courseId) {
+  const button = document.querySelector(`[data-checkin-button="${courseId}"]`);
+  if (button?.disabled) return;
+  if (button?.dataset.checkinStart) {
+    if (Date.now() > Date.parse(button.dataset.checkinEnd)) { refreshCheckinButtons(); return; }
+    if (Date.now() < Date.parse(button.dataset.checkinStart)) return alert(button.dataset.checkinMessage);
+  }
   if (!(await confirmAttendance('確定現在進行課程簽到？'))) return;
   await sendAttendance('checkin', courseId, '🎉 簽到成功！');
 }

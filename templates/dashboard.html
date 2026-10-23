@@ -66,6 +66,7 @@
               <div class="course-meta">
                 <span>📅 日期：{{ course.course_date }}</span>
                 <span>🕒 時間：{{ course.course_time }}</span>
+                <span>簽到時間：{{ course.checkin_start }}-{{ course.checkin_end }}</span>
               </div>
             </div>
 
@@ -91,10 +92,10 @@
             {# 1. 簽到按鈕 #}
             {% if course.signed %}
               <button disabled class="w-full py-2.5 bg-emerald-50 text-emerald-700 border border-emerald-200 text-sm font-semibold rounded-xl cursor-not-allowed">✓ 已簽到</button>
-            {% elif course.status in ['ON_LEAVE', 'MAKEUP_DONE'] %}
-              <button disabled class="w-full py-2.5 bg-gray-100 text-gray-400 text-sm font-medium rounded-xl cursor-not-allowed">簽到</button>
+            {% elif course.status in ['ON_LEAVE', 'MAKEUP_DONE'] or course.checkin_closed %}
+              <button data-checkin-button="{{ course.id }}" disabled class="w-full py-2.5 bg-gray-100 text-gray-400 text-sm font-medium rounded-xl cursor-not-allowed">簽到</button>
             {% else %}
-              <button onclick="doCheckin({{ course.id }})" class="w-full py-2.5 bg-[#15803D] hover:bg-[#166534] text-white text-sm font-semibold rounded-xl transition shadow-xs cursor-pointer">簽到</button>
+              <button data-checkin-button="{{ course.id }}" data-checkin-start="{{ course.checkin_starts_at }}" data-checkin-end="{{ course.checkin_ends_at }}" data-checkin-message="{{ course.checkin_message }}" onclick="doCheckin({{ course.id }})" class="w-full py-2.5 bg-[#15803D] hover:bg-[#166534] text-white text-sm font-semibold rounded-xl transition shadow-xs cursor-pointer">簽到</button>
             {% endif %}
 
             {# 2. 請假按鈕 #}
@@ -149,7 +150,7 @@
     </div>
   </div>
 
-  <script src="/static/js/attendance-dashboard.js?v=20261018_course_rules"></script>
+  <script src="/static/js/attendance-dashboard.js?v=20261023_checkin_window"></script>
 {% include "platform-footer.html" %}
 </body>
 </html>

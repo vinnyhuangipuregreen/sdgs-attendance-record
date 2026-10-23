@@ -81,7 +81,7 @@ class PersistenceTests(unittest.TestCase):
     def test_course_crud_survives_application_restart(self):
         with TestClient(index.app) as client:
             self.login_admin(client)
-            response = client.post("/api/admin/courses", json={"title": "永久儲存測試", "course_date": "2026/10/17", "course_time": "10:00-11:00", "open_time": "2026-10-17 10:00:00"})
+            response = client.post("/api/admin/courses", json={"title": "永久儲存測試", "course_date": "2026/10/17", "course_time": "10:00-11:00", "open_time": "2026-10-17 10:00:00", "checkin_start": "10:00", "checkin_end": "11:00"})
             self.assertEqual(response.status_code, 200)
             course_id = response.json()["course"]["id"]
         with TestClient(index.app) as client:
@@ -148,7 +148,7 @@ class PersistenceTests(unittest.TestCase):
         with TestClient(index.app) as client:
             self.login_admin(client)
             with patch.object(index.store, "save", side_effect=ConcurrentUpdate("請重新整理")):
-                response = client.post("/api/admin/courses", json={"title": "衝突測試"})
+                response = client.post("/api/admin/courses", json={"title": "衝突測試", "course_date":"2026/10/23", "course_time":"18:30-21:30", "checkin_start":"18:00", "checkin_end":"22:00"})
             self.assertEqual(response.status_code, 409)
             self.assertNotIn("衝突測試", str(AttendanceStore().load()[1]))
 
@@ -177,7 +177,7 @@ class PersistenceTests(unittest.TestCase):
                 if allowed:
                     self.assertEqual(response.json()['record']['signed_at'],now.strftime('%Y-%m-%d %H:%M:%S'))
                 else:
-                    self.assertEqual(response.json()['detail'],'吉祥！只能在[日期：2026/09/15]的[時間：18:00-22:00]進行簽到。')
+                    self.assertEqual(response.json()['detail'],'吉祥！2026/09/15 導論：自然永續的核心觀念與倫理基礎的簽到區間為：18:00-22:00。')
                     self.assertEqual(index.store.load(),before)
             with patch.object(index,'taiwan_now',return_value=start):
                 self.assertEqual(client.post('/api/attendance/checkin',json={'course_id':1}).status_code,200)

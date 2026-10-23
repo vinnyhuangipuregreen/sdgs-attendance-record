@@ -8,7 +8,8 @@ from typing import Literal
 from starlette.concurrency import run_in_threadpool
 from api.storage import AttendanceStore, ConcurrentUpdate, DATABASE_NAME
 from api.sso import resolve_session, install_sso
-from api.attendance import taiwan_now, record_view, apply_action
+from api.attendance import taiwan_now, record_view, apply_action, checkin_window
+from api.courses import course_fields
 from api.record_import import RecordImport, import_records
 from pathlib import Path
 from datetime import datetime
@@ -288,7 +289,9 @@ async def admin_page(request: Request):
             "students": request.state.db["students"],
             "courses": request.state.db["courses"],
             "course_counts": course_record_counts(request.state.db),
-            "current_admin": current_admin
+            "current_admin": current_admin,
+            "checkin_window": checkin_window,
+            "time_options": [f"{hour:02d}:{minute:02d}" for hour in range(24) for minute in (0, 30)]
         },
         request
     )
@@ -966,7 +969,7 @@ async def add_course(request: Request):
     if not get_current_admin(request): raise HTTPException(status_code=401, detail="未授權")
     data = await request.json()
     new_id = max([c["id"] for c in request.state.db["courses"]], default=0) + 1
-    new_c = {"id": new_id, "title": data.get("title", "").strip(), "course_date": data.get("course_date", "").strip(), "course_time": data.get("course_time", "").strip(), "open_time": data.get("open_time", "").strip()}
+    new_c = {"id": new_id, **course_fields(data)}
     request.state.db["courses"].append(new_c)
     return {"success": True, "course": new_c}
 
@@ -976,10 +979,7 @@ async def update_course(course_id: int, request: Request):
     data = await request.json()
     for c in request.state.db["courses"]:
         if c["id"] == course_id:
-            c["title"] = data.get("title", c["title"]).strip()
-            c["course_date"] = data.get("course_date", c["course_date"]).strip()
-            c["course_time"] = data.get("course_time", c["course_time"]).strip()
-            c["open_time"] = data.get("open_time", c["open_time"]).strip()
+            c.update(course_fields(data, c))
             return {"success": True, "course": c}
     raise HTTPException(status_code=404, detail="查無此課程")
 

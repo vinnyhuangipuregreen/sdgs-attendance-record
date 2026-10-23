@@ -7,11 +7,11 @@ const actions = source.slice(source.indexOf('function closeCourseModal()'), sour
 
 function setup(ok = true) {
   const calls = [];
-  const course = {id:1, title:'Updated', course_date:'2026/10/18', course_time:'10:00-11:00', open_time:'2026-10-18 10:00:00'};
+  const course = {id:1, title:'Updated', course_date:'2026/10/18', course_time:'10:00-11:00', open_time:'2026-10-18 10:00:00',checkin_start:'10:00',checkin_end:'11:00'};
   const button = {};
   const row = {dataset:{recordCounts:'{}'}, cells:Array.from({length:9}, () => ({})), querySelector:() => button, remove() { row.removed = true; }};
   const elements = {courseCount:{}, 'course-row-1':row, courseModal:{classList:{add:() => calls.push('close')}}};
-  for (const [id,value] of Object.entries({modalCourseId:'1',modalCourseTitle:course.title,modalCourseDate:course.course_date,modalCourseTime:course.course_time,modalCourseOpenTime:course.open_time})) elements[id] = {value};
+  for (const [id,value] of Object.entries({modalCourseId:'1',modalCourseTitle:course.title,modalCourseDate:course.course_date,modalCourseStart:'10:00',modalCourseEnd:'11:00',modalCheckinStart:'10:00',modalCheckinEnd:'11:00'})) elements[id] = {value};
   const alerts = [];
   const context = vm.createContext({document:{getElementById:id => elements[id], querySelectorAll:() => row.removed ? [] : [row]},
     fetch:async () => {calls.push('fetch'); return {ok,json:async () => ({course})};},

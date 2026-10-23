@@ -22,6 +22,25 @@ def course_window(course):
         raise HTTPException(409, "課程日期或時間設定有誤，請聯絡管理員")
 
 
+def checkin_window(course):
+    class_start, class_end = course_window(course)
+    try:
+        start = course.get("checkin_start") or course.get("open_time", "").split(" ")[-1][:5] or class_start.strftime("%H:%M")
+        end = course.get("checkin_end") or class_end.strftime("%H:%M")
+        day = course["course_date"].replace("/", "-")
+        starts = datetime.strptime(f"{day} {start}", "%Y-%m-%d %H:%M").replace(tzinfo=TAIWAN)
+        ends = datetime.strptime(f"{day} {end}", "%Y-%m-%d %H:%M").replace(tzinfo=TAIWAN)
+        if ends <= starts:
+            raise ValueError()
+        return starts, ends
+    except (ValueError, TypeError, AttributeError):
+        raise HTTPException(409, "簽到時間設定有誤，請聯絡管理員")
+
+
+def checkin_message(course, starts, ends):
+    return f"吉祥！{course['course_date']} {course['title']}的簽到區間為：{starts:%H:%M}-{ends:%H:%M}。"
+
+
 def record_view(course, record, now):
     record = record or {}
     status = record.get("status", "PENDING")
@@ -32,7 +51,14 @@ def record_view(course, record, now):
         closed = True
     if closed and status == "PENDING":
         status = "ABSENT"
-    return {**record, "status": status, "closed": closed,
+    try:
+        starts, checkin_ends = checkin_window(course)
+        checkin = {"checkin_start": starts.strftime("%H:%M"), "checkin_end": checkin_ends.strftime("%H:%M"),
+                   "checkin_starts_at": starts.isoformat(), "checkin_ends_at": checkin_ends.isoformat(),
+                   "checkin_closed": now > checkin_ends, "checkin_message": checkin_message(course, starts, checkin_ends)}
+    except HTTPException:
+        checkin = {"checkin_closed": True}
+    return {**record, **checkin, "status": status, "closed": closed,
             "signed": status == "SIGNED_IN" or bool(record.get("signed_at")),
             "signed_at": record.get("signed_at", ""),
             "leave_at": record.get("leave_at") or (record.get("updated_at", "") if record.get("status") == "ON_LEAVE" else ""),
@@ -43,9 +69,11 @@ def apply_action(data, student, course_id, action, now, reason=""):
     course = next((c for c in data["courses"] if str(c["id"]) == str(course_id)), None)
     if course is None:
         raise HTTPException(404, "查無此課程")
-    starts, ends = course_window(course)
-    if action == "checkin" and not starts <= now <= ends:
-        raise HTTPException(409, f"吉祥！只能在[日期：{course['course_date']}]的[時間：{course['course_time']}]進行簽到。")
+    _, ends = course_window(course)
+    if action == "checkin":
+        checkin_start, checkin_end = checkin_window(course)
+        if not checkin_start <= now <= checkin_end:
+            raise HTTPException(409, checkin_message(course, checkin_start, checkin_end))
     if action != "checkin" and now > ends:
         raise HTTPException(409, "課程已結束，不可請假或補課登錄。")
     key = f"{student['id']}_{course['id']}"
