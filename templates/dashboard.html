@@ -20,10 +20,10 @@
 
     <section class="page-header course-welcome">
       <div><span class="eyebrow">持續學習・累積行動・共創永續未來</span>
-      <h1>歡迎，{{ student.name }} 學員</h1>
-      <p>這裡是你的課程學習記錄，完成簽到、請假或補課，持續累積你的 SDGs 行動力！</p>
+      <h1>{% if read_only %}{{ student.name }} 學員的課程登錄{% else %}歡迎，{{ student.name }} 學員{% endif %}</h1>
+      <p>{% if read_only %}檢視本學年度的課程與簽到、請假、補課紀錄。{% else %}這裡是你的課程學習記錄，完成簽到、請假或補課，持續累積你的 SDGs 行動力！{% endif %}</p>
       <p class="text-sm">{{ student.email }}</p></div>
-      <a href="/sso/logout" class="secondary-button">登出</a>
+      {% if not read_only %}<a href="/sso/logout" class="secondary-button">登出</a>{% endif %}
     </section>
 
     <section class="course-stats" aria-label="課程出席統計">
@@ -52,7 +52,7 @@
           <span>📚 課程簽到與補課</span>
           <span class="text-xs text-gray-400 font-normal">共 {{ courses|length }} 堂課程</span>
         </h2>
-        <span class="text-xs text-gray-400">請依課堂時間完成簽到或登錄補課</span>
+        <span class="text-xs text-gray-400">{% if read_only %}學員課程紀錄{% else %}請依課堂時間完成簽到或登錄補課{% endif %}</span>
       </div>
 
       <div class="course-records">
@@ -89,6 +89,11 @@
 
           <!-- 操作按鈕群組 (簽到、請假、補課登錄) -->
           <div class="course-record-actions">
+            {% if read_only %}
+              <button disabled class="w-full py-2.5 bg-gray-100 text-gray-400 text-sm font-medium rounded-xl cursor-not-allowed">{{ '✓ 已簽到' if course.signed else '簽到' }}</button>
+              <button disabled class="w-full py-2.5 bg-gray-100 text-gray-400 text-sm font-medium rounded-xl cursor-not-allowed">{{ '✓ 已請假' if course.status == 'ON_LEAVE' or course.leave_at else '請假' }}</button>
+              <button disabled class="w-full py-2.5 bg-gray-100 text-gray-400 text-sm font-medium rounded-xl cursor-not-allowed">{{ '✓ 已補課' if course.status == 'MAKEUP_DONE' else '補課登錄' }}</button>
+            {% else %}
             {# 1. 簽到按鈕 #}
             {% if course.signed %}
               <button disabled class="w-full py-2.5 bg-emerald-50 text-emerald-700 border border-emerald-200 text-sm font-semibold rounded-xl cursor-not-allowed">✓ 已簽到</button>
@@ -115,6 +120,7 @@
             {% else %}
               <button disabled class="w-full py-2.5 bg-gray-100 text-gray-400 text-sm font-medium rounded-xl cursor-not-allowed">補課登錄</button>
             {% endif %}
+            {% endif %}
           </div>
         </div>
         {% endfor %}
@@ -123,6 +129,7 @@
 
   </main>
 
+  {% if not read_only %}
   <dialog id="attendanceConfirmDialog" class="rounded-2xl p-6 max-w-sm w-[calc(100%-2rem)] shadow-xl backdrop:bg-black/40">
     <form method="dialog" class="space-y-5">
       <p id="attendanceConfirmMessage" class="font-bold text-gray-800"></p>
@@ -151,6 +158,7 @@
   </div>
 
   <script src="/static/js/attendance-dashboard.js?v=20261023_checkin_window"></script>
+  {% endif %}
 {% include "platform-footer.html" %}
 </body>
 </html>

@@ -206,7 +206,20 @@ async def dashboard_page(request: Request):
     student = get_current_student(request)
     if not student:
         return RedirectResponse(url="/sso/login", status_code=302)
-    
+    return student_dashboard(request, student)
+
+
+@app.get("/admin/students/{platform_id}/dashboard", response_class=HTMLResponse)
+async def admin_student_dashboard(platform_id: int, request: Request):
+    if not get_current_admin(request):
+        raise HTTPException(403, "需要管理員或講師權限")
+    student = next((s for s in request.state.db["students"] if s.get("platform_key") == f"student:{platform_id}"), None)
+    if student is None:
+        raise HTTPException(404, "此學年度查無此學員")
+    return student_dashboard(request, student, read_only=True)
+
+
+def student_dashboard(request, student, read_only=False):
     now = taiwan_now()
     courses_view = []
     for c in request.state.db["courses"]:
@@ -217,6 +230,7 @@ async def dashboard_page(request: Request):
         "dashboard.html",
         {
             "student": student,
+            "read_only": read_only,
             "stats": {
                 "signed": sum(c["signed"] for c in courses_view),
                 "leave": sum(c["status"] == "ON_LEAVE" or bool(c["leave_at"]) for c in courses_view),
