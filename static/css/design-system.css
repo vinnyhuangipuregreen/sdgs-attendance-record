@@ -64,7 +64,7 @@ body:has(#tabPane_admin:not(.hidden) #adminSubPane_attendance:not(.hidden)) > .p
 .account-avatar { display: grid; place-items: center; width: 42px; height: 42px; border: 1px solid #d3ebde; background: var(--ds-soft); border-radius: 50%; font-size: 25px; }
 .platform-account #currentUserRole { font-size: 11px; color: var(--ds-green-ink); margin-top: 3px; background: #eef8f1; border-radius: 5px; padding: 1px 6px; }
 .platform-nav { background: white; border-top: 1px solid #eef3f2; overflow-x: auto; }
-.platform-nav-inner { max-width: var(--layout-max); margin: auto; display: grid; grid-template-columns: repeat(7,minmax(0,1fr)); align-items: stretch; gap: 7px; padding: 9px var(--layout-pad); }
+.platform-nav-inner { max-width: var(--layout-max); margin: auto; display: grid; grid-template-columns: repeat(8,minmax(0,1fr)); align-items: stretch; gap: 7px; padding: 9px var(--layout-pad); }
 .platform-nav button, .platform-nav a { display: flex; flex: 1 0 auto; justify-content: center; align-items: center; gap: 9px; border-radius: 11px; border: 0; min-height: 46px; padding: 9px 17px; font-size: 14px; font-weight: 700; color: #30483e; background: transparent; text-decoration: none; white-space: normal; text-align: center; cursor: pointer; }
 .platform-nav [aria-current="page"] { background: var(--module-ink); color: white; box-shadow: 0 3px 8px #15803d18; }
 .platform-nav a:hover, .platform-nav button:hover { background: #eef8f1; color: var(--module-ink); }
