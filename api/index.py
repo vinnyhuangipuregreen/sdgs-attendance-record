@@ -311,6 +311,13 @@ async def admin_page(request: Request):
     )
 
 
+@app.get("/api/admin/courses/catalog")
+async def course_catalog(request: Request):
+    if not get_current_admin(request):
+        raise HTTPException(403, "需要管理員權限")
+    return [{"id": c["id"], "title": c["title"]} for c in request.state.db["courses"]]
+
+
 def course_record_counts(data):
     counts = {course["id"]: {"SIGNED_IN": 0, "ON_LEAVE": 0, "MAKEUP_DONE": 0} for course in data["courses"]}
     for key, record in data["attendances"].items():
