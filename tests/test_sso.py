@@ -181,3 +181,19 @@ class CourseSsoTests(unittest.TestCase):
             self.assertEqual(self.client.get("/dashboard",follow_redirects=False).headers["location"],"/sso/login")
         with patch("api.sso.platform_request",side_effect=HTTPException(503,"offline")):
             self.assertEqual(self.client.get("/dashboard",follow_redirects=False).status_code,503)
+
+
+    def test_completion_counts_are_authenticated_aggregate_makeup_records_only(self):
+        path='/api/nsp/course-completions'
+        self.assertEqual(self.client.get(path).status_code,401)
+        headers={"Authorization":"Bearer platform-token"}
+        version,data=index.store.load()
+        data['attendances']={'1_1':{'status':'MAKEUP_DONE'},'999_1':{'status':'MAKEUP_DONE'}}
+        index.store.save(version,data)
+        result=self.client.get(path,headers=headers)
+        self.assertEqual(result.status_code,200)
+        self.assertEqual(set(result.json()[0]),{'title','makeup_count'})
+        self.assertEqual(result.json()[0]['makeup_count'],1)
+        index.store.initialize_year(2)
+        self.profile['academic_year']={'id':2,'year':2027,'start_month':'202709','end_month':'202806'}
+        self.assertEqual(self.client.get(path,headers=headers).json(),[])

@@ -318,6 +318,13 @@ async def course_catalog(request: Request):
     return [{"id": c["id"], "title": c["title"], "course_date": c.get("course_date", "")} for c in request.state.db["courses"]]
 
 
+@app.get("/api/nsp/course-completions")
+async def course_completions(request: Request):
+    if not get_current_student(request) and not get_current_admin(request):
+        raise HTTPException(401, "請先登入系統")
+    return [{"title": c["title"], "makeup_count": len(course_makeup_records(request.state.db, c))} for c in request.state.db["courses"]]
+
+
 def course_record_counts(data):
     counts = {course["id"]: {"SIGNED_IN": 0, "ON_LEAVE": 0, "MAKEUP_DONE": 0} for course in data["courses"]}
     for key, record in data["attendances"].items():

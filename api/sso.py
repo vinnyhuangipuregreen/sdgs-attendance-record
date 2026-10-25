@@ -64,7 +64,7 @@ def resolve_session(request, data, secret):
     request.state.sso_student = None
     request.state.sso_admin = None
     authorization = request.headers.get("authorization", "")
-    if authorization.startswith("Bearer ") and (request.url.path.startswith("/admin") or request.url.path.startswith("/api/admin")):
+    if authorization.startswith("Bearer ") and (request.url.path.startswith("/admin") or request.url.path.startswith("/api/admin") or request.url.path == "/api/nsp/course-completions"):
         session = {"access_token": authorization[7:]}
     else:
         cookie = request.cookies.get("platform_session")
