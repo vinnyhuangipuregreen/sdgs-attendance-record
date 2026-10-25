@@ -192,8 +192,17 @@ class CourseSsoTests(unittest.TestCase):
         index.store.save(version,data)
         result=self.client.get(path,headers=headers)
         self.assertEqual(result.status_code,200)
-        self.assertEqual(set(result.json()[0]),{'title','makeup_count'})
+        self.assertEqual(set(result.json()[0]),{'title','course_date','makeup_count','makeup_completed'})
         self.assertEqual(result.json()[0]['makeup_count'],1)
+        self.assertFalse(result.json()[0]['makeup_completed'])
+        version,data=index.store.load()
+        student=link_student(data,self.profile)
+        data['attendances'][f"{student['id']}_1"]={'status':'MAKEUP_DONE'}
+        index.store.save(version,data)
+        self.assertTrue(self.client.get(path,headers=headers).json()[0]['makeup_completed'])
+        self.assertFalse(self.client.get(path,headers=headers).json()[1]['makeup_completed'])
+        self.profile.update(account_type='staff',role='admin')
+        self.assertFalse(self.client.get(path,headers=headers).json()[0]['makeup_completed'])
         index.store.initialize_year(2)
         self.profile['academic_year']={'id':2,'year':2027,'start_month':'202709','end_month':'202806'}
         self.assertEqual(self.client.get(path,headers=headers).json(),[])
