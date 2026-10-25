@@ -192,14 +192,15 @@ class CourseSsoTests(unittest.TestCase):
         index.store.save(version,data)
         result=self.client.get(path,headers=headers)
         self.assertEqual(result.status_code,200)
-        self.assertEqual(set(result.json()[0]),{'title','course_date','makeup_count','makeup_completed'})
+        self.assertEqual(set(result.json()[0]),{'title','course_date','makeup_count','makeup_completed','makeup_completed_at'})
         self.assertEqual(result.json()[0]['makeup_count'],1)
         self.assertFalse(result.json()[0]['makeup_completed'])
         version,data=index.store.load()
         student=link_student(data,self.profile)
-        data['attendances'][f"{student['id']}_1"]={'status':'MAKEUP_DONE'}
+        data['attendances'][f"{student['id']}_1"]={'status':'MAKEUP_DONE','makeup_date':'2026-10-25 19:12:59'}
         index.store.save(version,data)
         self.assertTrue(self.client.get(path,headers=headers).json()[0]['makeup_completed'])
+        self.assertEqual(self.client.get(path,headers=headers).json()[0]['makeup_completed_at'],'2026-10-25 19:12:59')
         self.assertFalse(self.client.get(path,headers=headers).json()[1]['makeup_completed'])
         self.profile.update(account_type='staff',role='admin')
         self.assertFalse(self.client.get(path,headers=headers).json()[0]['makeup_completed'])

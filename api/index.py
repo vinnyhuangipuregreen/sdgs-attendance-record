@@ -325,6 +325,7 @@ async def course_completions(request: Request):
     student = get_current_student(request)
     return [{"title": c["title"], "course_date": c.get("course_date", ""),
              "makeup_count": len(course_makeup_records(request.state.db, c)),
+             "makeup_completed_at": request.state.db["attendances"].get(f"{student['id']}_{c['id']}", {}).get("makeup_date", "") if student else "",
              "makeup_completed": bool(student and request.state.db["attendances"].get(f"{student['id']}_{c['id']}", {}).get("status") == "MAKEUP_DONE")}
             for c in request.state.db["courses"]]
 
