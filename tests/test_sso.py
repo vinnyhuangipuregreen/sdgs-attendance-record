@@ -231,8 +231,12 @@ class CourseSsoTests(unittest.TestCase):
             self.assertEqual(saved['signed_at'],previous['signed_at'])
             self.assertEqual(saved['leave_at'],previous['leave_at'])
             self.assertEqual(saved['makeup_date'],'2026-10-25 23:10:00')
+            self.assertEqual(result.json()['makeup_completed_at'],saved['makeup_date'])
             version_before=index.store.load()
-            self.assertEqual(self.client.post(path,headers=headers,json={'course_id':2}).status_code,200)
+            with patch('api.index.platform_request',return_value={**verified,'completed_at':'2026-10-26T12:00:00+08:00'}):
+                repeated=self.client.post(path,headers=headers,json={'course_id':2})
+            self.assertEqual(repeated.status_code,200)
+            self.assertEqual(repeated.json()['makeup_completed_at'],saved['makeup_date'])
             self.assertEqual(index.store.load(),version_before)
             state=self.begin()
             self.client.get('/auth/sso/callback',params={'state':state,'code':'code'},follow_redirects=False)

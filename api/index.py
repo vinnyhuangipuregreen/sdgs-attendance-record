@@ -354,7 +354,8 @@ async def complete_nsp_course(request: Request):
             "leave_at": previous.get("leave_at") or (previous.get("updated_at", "") if previous.get("status") == "ON_LEAVE" else ""),
             "makeup_date": timestamp, "platform_email": student.get("email_pathdemy") or student["email"],
             "note": "NSP數位學習全部影片完成", "updated_at": timestamp}
-    return {"success": True, "course_id": course["id"]}
+    return {"success": True, "course_id": course["id"],
+            "makeup_completed_at": request.state.db["attendances"][key]["makeup_date"]}
 
 
 def course_record_counts(data):
