@@ -197,3 +197,38 @@ class CourseSsoTests(unittest.TestCase):
         index.store.initialize_year(2)
         self.profile['academic_year']={'id':2,'year':2027,'start_month':'202709','end_month':'202806'}
         self.assertEqual(self.client.get(path,headers=headers).json(),[])
+
+    def test_nsp_completion_verifies_student_progress_and_preserves_attendance_history(self):
+        headers={'Authorization':'Bearer platform-token','X-Academic-Year':'1'}
+        path='/api/nsp/complete'
+        self.assertEqual(self.client.post(path,json={'course_id':2}).status_code,403)
+        verified={'id':2,'title':index.SEED_DATA['courses'][0]['title'],'completed':True,'completed_at':'2026-10-25T23:10:00+08:00'}
+        with patch('api.index.platform_request',return_value=verified) as verify:
+            self.assertEqual(self.client.post(path,headers=headers,json={'course_id':'2'}).status_code,422)
+            with patch('api.index.platform_request',return_value={**verified,'completed':False}):
+                self.assertEqual(self.client.post(path,headers=headers,json={'course_id':2}).status_code,409)
+            version,data=index.store.load()
+            student=link_student(data,self.profile)
+            key=f"{student['id']}_1"
+            previous={'status':'SIGNED_IN','signed_at':'2026-09-15 18:00:00','leave_at':'2026-09-14 12:00:00'}
+            data['attendances'][key]=previous
+            index.store.save(version,data)
+            result=self.client.post(path,headers=headers,json={'course_id':2})
+            self.assertEqual(result.status_code,200,result.text)
+            verify.assert_called_with('/api/nsp/courses/2/completion','platform-token')
+            saved=index.store.load()[1]['attendances'][key]
+            self.assertEqual(saved['status'],'MAKEUP_DONE')
+            self.assertEqual(saved['signed_at'],previous['signed_at'])
+            self.assertEqual(saved['leave_at'],previous['leave_at'])
+            self.assertEqual(saved['makeup_date'],'2026-10-25 23:10:00')
+            version_before=index.store.load()
+            self.assertEqual(self.client.post(path,headers=headers,json={'course_id':2}).status_code,200)
+            self.assertEqual(index.store.load(),version_before)
+            state=self.begin()
+            self.client.get('/auth/sso/callback',params={'state':state,'code':'code'},follow_redirects=False)
+            self.assertIn('已補課',self.client.get('/dashboard').text)
+            with patch('api.index.platform_request',return_value={**verified,'title':'找不到'}):
+                self.assertEqual(self.client.post(path,headers=headers,json={'course_id':2}).status_code,409)
+            self.assertEqual(self.client.post(path,headers={**headers,'X-Academic-Year':'2'},json={'course_id':2}).status_code,409)
+            self.profile.update(account_type='staff',role='admin')
+            self.assertEqual(self.client.post(path,headers=headers,json={'course_id':2}).status_code,403)

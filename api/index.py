@@ -7,7 +7,7 @@ from urllib.parse import quote
 from typing import Literal
 from starlette.concurrency import run_in_threadpool
 from api.storage import AttendanceStore, ConcurrentUpdate, DATABASE_NAME
-from api.sso import resolve_session, install_sso
+from api.sso import resolve_session, install_sso, platform_request
 from api.attendance import taiwan_now, record_view, apply_action, checkin_window
 from api.courses import course_fields
 from api.record_import import RecordImport, import_records
@@ -323,6 +323,33 @@ async def course_completions(request: Request):
     if not get_current_student(request) and not get_current_admin(request):
         raise HTTPException(401, "請先登入系統")
     return [{"title": c["title"], "makeup_count": len(course_makeup_records(request.state.db, c))} for c in request.state.db["courses"]]
+
+
+@app.post("/api/nsp/complete")
+async def complete_nsp_course(request: Request):
+    student = get_current_student(request)
+    if not student:
+        raise HTTPException(403, "僅學員可同步補課紀錄")
+    payload = await request.json()
+    course_id = payload.get("course_id")
+    if type(course_id) is not int or course_id < 1:
+        raise HTTPException(422, "課程編號無效")
+    verified = await run_in_threadpool(platform_request, f"/api/nsp/courses/{course_id}/completion", request.state.platform_token)
+    if not verified.get("completed"):
+        raise HTTPException(409, "尚未完成本課程全部影片")
+    matches = [c for c in request.state.db["courses"] if c["title"] == verified["title"]]
+    if len(matches) != 1:
+        raise HTTPException(409, "課程對應不唯一，請聯絡管理員確認課程名稱")
+    course = matches[0]
+    key = f"{student['id']}_{course['id']}"
+    previous = request.state.db["attendances"].get(key, {})
+    if previous.get("status") != "MAKEUP_DONE":
+        timestamp = datetime.fromisoformat(verified["completed_at"]).astimezone(taiwan_now().tzinfo).strftime("%Y-%m-%d %H:%M:%S")
+        request.state.db["attendances"][key] = {**previous, "status": "MAKEUP_DONE",
+            "leave_at": previous.get("leave_at") or (previous.get("updated_at", "") if previous.get("status") == "ON_LEAVE" else ""),
+            "makeup_date": timestamp, "platform_email": student.get("email_pathdemy") or student["email"],
+            "note": "NSP數位學習全部影片完成", "updated_at": timestamp}
+    return {"success": True, "course_id": course["id"]}
 
 
 def course_record_counts(data):
