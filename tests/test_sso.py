@@ -113,14 +113,15 @@ class CourseSsoTests(unittest.TestCase):
         self.assertEqual(link_student(data,other)["id"],10)
         self.assertIn("9_1",data["attendances"])
 
-    def test_nsp_course_name_catalog_requires_staff_and_returns_only_titles_and_ids(self):
+    def test_nsp_course_catalog_requires_staff_and_returns_dates_titles_and_ids(self):
         headers = {"Authorization": "Bearer platform-token"}
         self.assertEqual(self.client.get("/api/admin/courses/catalog", headers=headers).status_code, 403)
         self.profile.update(account_type="staff", role="admin")
         response = self.client.get("/api/admin/courses/catalog", headers=headers)
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.json())
-        self.assertEqual(set(response.json()[0]), {"id", "title"})
+        self.assertEqual(set(response.json()[0]), {"id", "title", "course_date"})
+        self.assertEqual(response.json()[0]["course_date"], "2026/09/15")
 
     def test_course_views_verify_identity_and_roster_with_one_platform_request(self):
         self.profile.update(account_type="staff", role="admin")

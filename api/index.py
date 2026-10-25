@@ -315,7 +315,7 @@ async def admin_page(request: Request):
 async def course_catalog(request: Request):
     if not get_current_admin(request):
         raise HTTPException(403, "需要管理員權限")
-    return [{"id": c["id"], "title": c["title"]} for c in request.state.db["courses"]]
+    return [{"id": c["id"], "title": c["title"], "course_date": c.get("course_date", "")} for c in request.state.db["courses"]]
 
 
 def course_record_counts(data):
