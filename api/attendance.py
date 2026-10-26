@@ -47,10 +47,12 @@ def record_view(course, record, now):
     record = record or {}
     status = record.get("status", "PENDING")
     try:
-        _, ends = course_window(course)
+        class_start, ends = course_window(course)
         closed = now > ends
+        makeup_available = now.astimezone(TAIWAN).date() > class_start.date() and status != "MAKEUP_DONE"
     except HTTPException:
         closed = True
+        makeup_available = False
     if closed and status == "PENDING":
         status = "ABSENT"
     try:
@@ -60,7 +62,7 @@ def record_view(course, record, now):
                    "checkin_closed": now > checkin_ends, "checkin_message": checkin_message(course, starts, checkin_ends)}
     except HTTPException:
         checkin = {"checkin_closed": True}
-    return {**record, **checkin, "status": status, "closed": closed,
+    return {**record, **checkin, "status": status, "closed": closed, "makeup_available": makeup_available,
             "signed": status == "SIGNED_IN" or bool(record.get("signed_at")),
             "signed_at": record.get("signed_at", ""),
             "leave_at": record.get("leave_at") or (record.get("updated_at", "") if record.get("status") == "ON_LEAVE" else ""),
@@ -76,8 +78,8 @@ def apply_action(data, student, course_id, action, now, reason=""):
         checkin_start, checkin_end = checkin_window(course)
         if not checkin_start <= now <= checkin_end:
             raise HTTPException(409, checkin_message(course, checkin_start, checkin_end))
-    if action != "checkin" and now > ends:
-        raise HTTPException(409, "課程已結束，不可請假或補課登錄。")
+    if action == "leave" and now > ends:
+        raise HTTPException(409, "課程已結束，不可請假。")
     key = f"{student['id']}_{course['id']}"
     previous = data["attendances"].get(key, {})
     status = previous.get("status", "PENDING")
@@ -91,9 +93,9 @@ def apply_action(data, student, course_id, action, now, reason=""):
             raise HTTPException(422, "請填寫請假原因！")
         record = {"status": "ON_LEAVE", "reason": reason.strip(), "leave_at": timestamp, "updated_at": timestamp}
     else:
-        if status != "ON_LEAVE":
-            raise HTTPException(409, "必須先完成請假，且不可重複登錄補課。")
-        record = {**previous, "status": "MAKEUP_DONE", "leave_at": previous.get("leave_at") or previous.get("updated_at", ""),
+        if not record_view(course, previous, now)["makeup_available"]:
+            raise HTTPException(409, "課程日期隔天起才可補課登錄，且不可重複登錄補課。")
+        record = {**previous, "status": "MAKEUP_DONE", "leave_at": previous.get("leave_at") or (previous.get("updated_at", "") if status == "ON_LEAVE" else ""),
                   "makeup_date": timestamp, "platform_email": student.get("email_pathdemy") or student["email"],
                   "note": "自行登錄", "updated_at": timestamp}
     data["attendances"][key] = record

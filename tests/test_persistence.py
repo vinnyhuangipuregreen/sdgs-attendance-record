@@ -126,7 +126,7 @@ class PersistenceTests(unittest.TestCase):
             self.set_session(client)
             for action, status, course_id, now in [("checkin", "SIGNED_IN", 1, datetime(2026,9,15,18,5,tzinfo=TAIWAN)),
                     ("leave", "ON_LEAVE", 2, datetime(2026,9,22,18,35,tzinfo=TAIWAN)),
-                    ("makeup", "MAKEUP_DONE", 2, datetime(2026,9,22,19,5,tzinfo=TAIWAN))]:
+                    ("makeup", "MAKEUP_DONE", 2, datetime(2026,9,23,0,0,tzinfo=TAIWAN))]:
                 with patch.object(index, "taiwan_now", return_value=now):
                     response = client.post("/api/attendance/" + action, json={"course_id": course_id, "reason": "測試請假"})
                 self.assertEqual(response.status_code, 200)
@@ -188,7 +188,7 @@ class PersistenceTests(unittest.TestCase):
 
     def test_leave_makeup_preserve_both_times_and_sync_all_admin_pages(self):
         leave_time=datetime(2026,9,15,17,30,12,tzinfo=TAIWAN)
-        makeup_time=leave_time+timedelta(minutes=10)
+        makeup_time=datetime(2026,9,16,0,0,tzinfo=TAIWAN)
         with TestClient(index.app) as client:
             self.set_session(client)
             with patch.object(index,'taiwan_now',return_value=leave_time):
@@ -203,7 +203,7 @@ class PersistenceTests(unittest.TestCase):
                 self.assertEqual(response.status_code,200,response.text)
                 record=response.json()['record']
                 self.assertEqual(record['leave_at'],'2026-09-15 17:30:12')
-                self.assertEqual(record['makeup_date'],'2026-09-15 17:40:12')
+                self.assertEqual(record['makeup_date'],'2026-09-16 00:00:00')
                 self.assertEqual(record['reason'],'測試事由')
                 before=index.store.load()
                 self.assertEqual(client.post('/api/attendance/makeup',json={'course_id':1}).status_code,409)

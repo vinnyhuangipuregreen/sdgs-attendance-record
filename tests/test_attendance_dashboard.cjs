@@ -80,3 +80,14 @@ test('an open dashboard greys and disables checkin when its window ends', async 
   await env.context.doCheckin(1);
   assert.deepEqual(env.calls, []);
 });
+
+
+test('admin student view submits and reloads the selected student inside the gateway',async()=>{
+  const env=setup(),target='/attendance-admin/api/admin/attendance/students/433/';
+  env.context.document.body={dataset:{attendanceApi:target,attendanceReload:'/attendance-admin/admin/students/433/dashboard'}};
+  env.context.location.replace=url=>env.calls.push({reload:url});
+  const task=env.context.doMakeup(2);env.confirm(true);await task;
+  assert.equal(env.calls[1].path,target+'makeup');
+  assert.equal(env.calls[1].payload.course_id,2);
+  assert.deepEqual(env.calls.at(-1),{reload:'/attendance-admin/admin/students/433/dashboard'});
+});

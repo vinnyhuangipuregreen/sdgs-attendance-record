@@ -10,7 +10,7 @@ class CheckinWindowTests(unittest.TestCase):
     def setUp(self):
         self.course = {"id": 1, "title": "測試課程", "course_date": "2026/10/23", "course_time": "18:30-21:30", "open_time": "2026-10-23 18:00:00", "checkin_start": "18:00", "checkin_end": "22:00"}
         self.data = {"courses": [self.course], "attendances": {}}
-        self.student = {"id": 1}
+        self.student = {"id": 1, "email":"student@example.invalid"}
 
     def test_boundaries_use_checkin_window_instead_of_class_hours(self):
         for hour, minute in [(18, 0), (18, 15), (21, 45), (22, 0)]:
@@ -38,6 +38,25 @@ class CheckinWindowTests(unittest.TestCase):
         view = record_view(legacy,None,datetime(2026,12,8,14,tzinfo=TAIWAN))
         self.assertEqual((view["checkin_start"],view["checkin_end"]),("13:30","16:30"))
         self.assertEqual(legacy, original)
+
+    def test_makeup_opens_at_next_taiwan_midnight_for_all_unfinished_students(self):
+        for previous in ({},{"status":"SIGNED_IN","signed_at":"2026-10-23 18:30:00"},{"status":"ON_LEAVE","leave_at":"2026-10-23 17:00:00"}):
+            data=copy.deepcopy(self.data);data['attendances']['1_1']=previous
+            for now in [datetime(2026,10,22,12,tzinfo=TAIWAN),datetime(2026,10,23,23,59,59,tzinfo=TAIWAN)]:
+                self.assertFalse(record_view(self.course,previous,now)['makeup_available'])
+                before=copy.deepcopy(data)
+                with self.assertRaises(HTTPException):apply_action(data,self.student,1,'makeup',now)
+                self.assertEqual(data,before)
+            now=datetime(2026,10,24,tzinfo=TAIWAN)
+            self.assertTrue(record_view(self.course,previous,now)['makeup_available'])
+            record=apply_action(data,self.student,1,'makeup',now)['record']
+            self.assertEqual(record['makeup_date'],'2026-10-24 00:00:00')
+            self.assertEqual(record.get('signed_at'),previous.get('signed_at'))
+            self.assertEqual(record['leave_at'],previous.get('leave_at',''))
+            self.assertFalse(record_view(self.course,record,now)['makeup_available'])
+            before=copy.deepcopy(data)
+            with self.assertRaises(HTTPException):apply_action(data,self.student,1,'makeup',datetime(2026,11,1,tzinfo=TAIWAN))
+            self.assertEqual(data,before)
 
 
 class CourseEditorTests(unittest.TestCase):

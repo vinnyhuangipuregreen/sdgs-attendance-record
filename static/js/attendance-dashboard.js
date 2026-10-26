@@ -10,18 +10,18 @@ function confirmAttendance(message) {
 
 async function sendAttendance(action, courseId, message, reason) {
   try {
-    const response = await fetch('/api/attendance/' + action, {
+    const response = await fetch((document.body?.dataset.attendanceApi || '/api/attendance/') + action, {
       method:'POST', headers:{'Content-Type':'application/json'},
       body:JSON.stringify({course_id:courseId, reason})
     });
     const result = await response.json();
     if (!response.ok) {
       alert(result.detail || result.error || '登記失敗，請稍後重試');
-      if (response.status === 409) location.reload();
+      if (response.status === 409) document.body?.dataset.attendanceReload ? location.replace(document.body.dataset.attendanceReload) : location.reload();
       return;
     }
     alert(message);
-    location.reload();
+    document.body?.dataset.attendanceReload ? location.replace(document.body.dataset.attendanceReload) : location.reload();
   } catch (error) {
     alert('網路連線異常，請稍後再試！');
   }

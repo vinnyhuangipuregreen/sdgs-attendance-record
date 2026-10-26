@@ -216,10 +216,23 @@ async def admin_student_dashboard(platform_id: int, request: Request):
     student = next((s for s in request.state.db["students"] if s.get("platform_key") == f"student:{platform_id}"), None)
     if student is None:
         raise HTTPException(404, "此學年度查無此學員")
-    return student_dashboard(request, student, read_only=True)
+    return student_dashboard(request, student, admin_view=True)
 
 
-def student_dashboard(request, student, read_only=False):
+@app.post("/api/admin/attendance/students/{platform_id}/{action}")
+async def admin_student_attendance(platform_id: int, action: str, request: Request):
+    if not get_current_admin(request):
+        raise HTTPException(403, "需要管理員或講師權限")
+    if action not in {"checkin", "leave", "makeup"}:
+        raise HTTPException(404, "查無此登錄功能")
+    student = next((s for s in request.state.db["students"] if s.get("platform_key") == f"student:{platform_id}"), None)
+    if student is None:
+        raise HTTPException(404, "此學年度查無此學員")
+    data = await request.json()
+    return apply_action(request.state.db, student, data.get("course_id"), action, taiwan_now(), data.get("reason", ""))
+
+
+def student_dashboard(request, student, admin_view=False):
     now = taiwan_now()
     courses_view = []
     for c in request.state.db["courses"]:
@@ -230,7 +243,7 @@ def student_dashboard(request, student, read_only=False):
         "dashboard.html",
         {
             "student": student,
-            "read_only": read_only,
+            "admin_view": admin_view,
             "stats": {
                 "signed": sum(c["signed"] for c in courses_view),
                 "leave": sum(c["status"] == "ON_LEAVE" or bool(c["leave_at"]) for c in courses_view),
