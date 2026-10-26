@@ -8,7 +8,12 @@ function confirmAttendance(message) {
   });
 }
 
+const pendingAttendance = new Set();
+
 async function sendAttendance(action, courseId, message, reason) {
+  const key = String(courseId);
+  if (pendingAttendance.has(key)) return;
+  pendingAttendance.add(key);
   try {
     const response = await fetch((document.body?.dataset.attendanceApi || '/api/attendance/') + action, {
       method:'POST', headers:{'Content-Type':'application/json'},
@@ -24,6 +29,8 @@ async function sendAttendance(action, courseId, message, reason) {
     document.body?.dataset.attendanceReload ? location.replace(document.body.dataset.attendanceReload) : location.reload();
   } catch (error) {
     alert('網路連線異常，請稍後再試！');
+  } finally {
+    pendingAttendance.delete(key);
   }
 }
 

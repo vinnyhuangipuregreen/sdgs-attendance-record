@@ -91,3 +91,17 @@ test('admin student view submits and reloads the selected student inside the gat
   assert.equal(env.calls[1].payload.course_id,2);
   assert.deepEqual(env.calls.at(-1),{reload:'/attendance-admin/admin/students/433/dashboard'});
 });
+
+test('rapid checkin and leave submissions for one course send only one request', async()=>{
+  const env=setup();
+  let complete;
+  env.context.fetch=()=>new Promise(resolve=>{complete=resolve;env.calls.push('request');});
+  const first=env.context.sendAttendance('checkin',1,'success');
+  await env.context.sendAttendance('leave',1,'leave','reason');
+  assert.equal(env.calls.filter(call=>call==='request').length,1);
+  complete({ok:true,json:async()=>({success:true})});
+  await first;
+  env.context.fetch=async()=>({ok:false,status:503,json:async()=>({error:'retry'})});
+  await env.context.sendAttendance('checkin',1,'success');
+  assert.equal(env.alerts.at(-1),'retry');
+});

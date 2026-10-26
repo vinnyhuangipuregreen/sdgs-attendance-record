@@ -135,6 +135,15 @@ async def persistent_course_data(request: Request, call_next):
     profile = getattr(request.state,"platform_profile",None)
     if profile and profile["account_type"] == "student":
         request.state.sso_student = link_student(data, profile)
+        if data != original and not request.url.path.startswith(("/admin", "/api/admin")):
+            try:
+                version, data = await run_in_threadpool(store.sync_student, profile, year_id)
+            except (RuntimeError, OSError):
+                return JSONResponse(status_code=503, content={"error": "學員資料尚未同步，請稍後再試"})
+            request.state.db = data
+            request.state.db_version = version
+            original = copy.deepcopy(data)
+            request.state.sso_student = next(s for s in data["students"] if s.get("platform_key") == "student:" + str(profile["id"]))
     roster = getattr(request.state, "platform_roster", None)
     if roster is not None:
         sync_roster(data, roster)
@@ -148,7 +157,10 @@ async def persistent_course_data(request: Request, call_next):
     response = await call_next(request)
     if original is not None and response.status_code < 400 and data != original:
         try:
-            await run_in_threadpool(store.save, version, data, year_id)
+            if request.url.path.startswith(("/api/attendance/", "/api/admin/attendance/students/")) and all(data[key] == original[key] for key in data if key != "attendances"):
+                await run_in_threadpool(store.save_records, original, data, year_id)
+            else:
+                await run_in_threadpool(store.save, version, data, year_id)
         except ConcurrentUpdate as error:
             return JSONResponse(status_code=409, content={"error": str(error)})
         except (RuntimeError, OSError):

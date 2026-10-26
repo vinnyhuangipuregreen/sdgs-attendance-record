@@ -39,7 +39,7 @@ class AttendanceStore:
                     return rows, cursor.rowcount
             except sqlite3.Error as error:
                 raise RuntimeError("無法存取課程資料庫") from error
-        args = [{"type": "integer", "value": str(value)} if isinstance(value, int)
+        args = [{"type": "null"} if value is None else {"type": "integer", "value": str(value)} if isinstance(value, int)
                 else {"type": "text", "value": value} for value in params]
         body = {"requests": [{"type": "execute", "stmt": {"sql": sql, "args": args}}, {"type": "close"}]}
         request = urllib.request.Request(
@@ -83,3 +83,61 @@ class AttendanceStore:
                                   (json.dumps(data, ensure_ascii=False), year_id, version))
         if changed != 1:
             raise ConcurrentUpdate("資料已由其他人更新，請重新整理後再試，以免覆蓋最新資料")
+
+    def sync_student(self, profile, year_id=1):
+        """Link/update one verified profile against current data, not a stale roster."""
+        table = "attendance_state" if year_id == 1 else "annual_attendance_state"
+        fields = {"platform_key": "student:" + str(profile["id"]), "platform_id": profile["id"],
+                  "name": profile["name"], "email": profile["email"],
+                  "email_pathdemy": profile.get("email_backup") or profile["email"],
+                  **{key: profile.get(key, "") for key in ("phone", "unit_code", "unit_name")}}
+        emails = [str(profile.get(key) or "").strip().lower() for key in ("email", "email_backup")]
+        rows, _ = self.execute(f"""WITH state AS (SELECT payload FROM {table} WHERE id=?),
+            students AS (SELECT j.key AS position, j.value AS item FROM state, json_each(state.payload,'$.students') j),
+            legacy AS (SELECT position FROM students WHERE COALESCE(json_extract(item,'$.platform_key'),'')=''
+                AND (lower(trim(json_extract(item,'$.email'))) IN (NULLIF(?,''),NULLIF(?,''))
+                     OR lower(trim(json_extract(item,'$.email_pathdemy'))) IN (NULLIF(?,''),NULLIF(?,'')))),
+            target AS (SELECT COALESCE(
+                (SELECT position FROM students WHERE json_extract(item,'$.platform_key')=? LIMIT 1),
+                (SELECT position FROM legacy WHERE (SELECT count(*) FROM legacy)=1)) AS position)
+            UPDATE {table} SET payload=json_set(payload,
+                CASE WHEN (SELECT position FROM target) IS NULL THEN '$.students[#]'
+                     ELSE '$.students['||(SELECT position FROM target)||']' END,
+                json_set(json_patch(COALESCE((SELECT item FROM students WHERE position=(SELECT position FROM target)),'{{}}'),json(?)),
+                    '$.id',COALESCE((SELECT json_extract(item,'$.id') FROM students WHERE position=(SELECT position FROM target)),
+                                   (SELECT COALESCE(max(CAST(json_extract(item,'$.id') AS INTEGER)),0)+1 FROM students)))),
+                version=version+1 WHERE id=? RETURNING version,payload""",
+            (year_id, *emails, *emails, fields["platform_key"], json.dumps(fields, ensure_ascii=False), year_id))
+        if not rows:
+            raise RuntimeError("此學年度課程資料尚未初始化")
+        return int(rows[0][0]), json.loads(rows[0][1])
+
+    def save_records(self, original, data, year_id=1):
+        """Atomically patch changed record keys; unrelated students never conflict."""
+        table = "attendance_state" if year_id == 1 else "annual_attendance_state"
+        before, after = original["attendances"], data["attendances"]
+        keys = [key for key in before.keys() | after.keys() if before.get(key) != after.get(key)]
+        if not keys:
+            return
+        expression, args, conditions, guards = "payload", [], [], []
+        for key in keys:
+            # Keys come from validated integer student/course IDs, not request JSON paths.
+            student_id, course_id = (int(part) for part in key.split("_"))
+            path = f'$.attendances."{student_id}_{course_id}"'
+            if key in after:
+                expression = f"json_set({expression}, ?, json(?))"
+                args.extend((path, json.dumps(after[key], ensure_ascii=False)))
+            else:
+                expression = f"json_remove({expression}, ?)"
+                args.append(path)
+            conditions.append("json_extract(payload, ?) IS json(?)")
+            guards.extend((path, json.dumps(before[key], ensure_ascii=False) if key in before else None))
+            for collection, item_id in (("students", student_id), ("courses", course_id)):
+                item = next(item for item in original[collection] if int(item["id"]) == item_id)
+                conditions.append(f"EXISTS (SELECT 1 FROM json_each(payload,'$.{collection}') j WHERE json_extract(j.value,'$.id')=? AND j.value=json(?))")
+                guards.extend((item_id, json.dumps(item, ensure_ascii=False)))
+        # Reject concurrent course/roster administration rather than applying stale rules.
+        _, changed = self.execute(f"UPDATE {table} SET payload={expression}, version=version+1 WHERE id=? AND " + " AND ".join(conditions),
+                                  (*args, year_id, *guards))
+        if changed != 1:
+            raise ConcurrentUpdate("此筆紀錄或課程資料已更新，請重新整理後確認登錄結果")
