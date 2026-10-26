@@ -77,3 +77,12 @@ test('embedded edit modal fits the visible parent viewport and adapts to resizin
   assert.equal(modal.style.height, '400px');
   assert.equal(modal.firstElementChild.style.maxHeight, '376px');
 });
+
+
+test('history restored course lists reload their server counts while ordinary loads stay unchanged',()=>{
+  let pageshow,reloads=0;
+  const restore=source.slice(source.indexOf("    window.addEventListener('pageshow'"),source.indexOf("    document.addEventListener('DOMContentLoaded'"));
+  vm.runInNewContext(restore,{window:{addEventListener(name,callback){assert.equal(name,'pageshow');pageshow=callback;}},location:{reload(){reloads++;}}});
+  pageshow({persisted:false});assert.equal(reloads,0);
+  pageshow({persisted:true});assert.equal(reloads,1);
+});

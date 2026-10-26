@@ -77,3 +77,16 @@ class MakeupExportTests(unittest.TestCase):
         self.assertEqual(self.export().status_code, 403)
         self.client.headers.pop("Authorization")
         self.assertEqual(self.export().status_code, 403)
+
+    def test_deleting_makeup_and_returning_to_courses_uses_fresh_matching_counts(self):
+        before=index.store.load()[1]
+        self.assertEqual(len(index.course_makeup_records(before,before['courses'][0])),2)
+        self.assertEqual(self.client.delete('/api/admin/courses/1/pathdemy/1').status_code,200)
+        page=self.client.get('/admin/courses/1/pathdemy')
+        self.assertIn('href="/admin" data-makeup-back',page.text)
+        self.assertNotIn('history.back()',page.text)
+        listing=self.client.get('/admin',headers={'X-Platform-Embedded':'1'})
+        self.assertEqual(listing.status_code,200)
+        data=index.store.load()[1]
+        self.assertEqual(index.course_record_counts(data)[1]['MAKEUP_DONE'],1)
+        self.assertEqual(len(index.course_makeup_records(data,data['courses'][0])),1)

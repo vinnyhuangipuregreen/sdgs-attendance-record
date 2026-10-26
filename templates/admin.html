@@ -310,6 +310,10 @@
       try { localStorage.setItem('admin_active_tab', tabId); } catch(e) {}
     }
 
+    window.addEventListener('pageshow', event => {
+      if (event.persisted) location.reload();
+    });
+
     document.addEventListener('DOMContentLoaded', () => {
       {% if embedded %}
       switchTab('courses');
