@@ -13,6 +13,7 @@
   </style>
   <link rel="stylesheet" href="/static/css/design-system.css?v=20261024_restore_attendance">
   <link rel="stylesheet" href="/static/css/attendance.css?v=20261023_student_view">
+  <link rel="stylesheet" href="/static/css/responsive.css?v=20261027_rwd">
 </head>
 <body {% if admin_view %}data-attendance-api="/api/admin/attendance/students/{{ student.platform_id }}/" data-attendance-reload="/admin/students/{{ student.platform_id }}/dashboard"{% endif %} class="sdgs-shell attendance-platform course-dashboard min-h-screen">
   {% include "platform-nav.html" %}

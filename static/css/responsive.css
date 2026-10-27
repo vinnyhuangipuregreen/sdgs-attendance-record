@@ -1,0 +1,80 @@
+/* Responsive layout shared by the public pages, administration and embedded tools. */
+.sdgs-shell :is(main, section, article, aside, form, fieldset, .ds-container, .platform-brand, .platform-brand > span, .platform-account, .admin-content, .panel) { min-width: 0; }
+.sdgs-shell :is(input, select, textarea) { min-width: 0; max-width: 100%; }
+.sdgs-shell :is(img, video, canvas) { max-width: 100%; }
+.sdgs-shell :is(h1, h2, h3, h4, p, label, .platform-footer-inner) { overflow-wrap: anywhere; }
+.sdgs-shell :is(.table-scroll, .table-container, .overflow-x-auto, .nsp-table-wrap) { min-width: 0; max-width: 100%; overflow-x: auto; overscroll-behavior-inline: contain; }
+.platform-nav-inner > :is(a, button) { min-width: 0; height: auto; min-height: 48px; white-space: normal; overflow-wrap: anywhere; line-height: 1.5; }
+.sdgs-shell :is(.modal-card, dialog) { max-height: calc(100dvh - 24px); overflow-y: auto; overscroll-behavior: contain; }
+.sdgs-shell [id$="Modal"].fixed { overflow-y: auto; overscroll-behavior: contain; }
+.sdgs-shell [id$="Modal"].fixed > div { min-width: 0; max-height: calc(100dvh - 32px); overflow-y: auto; }
+.admin-content, .admin-container, .panel-header, .nsp-admin-heading { min-width: 0; }
+.panel-header > div { flex-wrap: wrap; min-width: 0; }
+.nsp-rich-text, .nsp-rich-editor { max-width: 100%; overflow-x: auto; }
+.nsp-rich-text img, .nsp-rich-editor img { height: auto; }
+.nsp-admin table { min-width: 640px; }
+.nsp-catalog-toolbar label { min-width: 0; }
+.nsp-outline button > span, .nsp-lesson > span { min-width: 0; overflow-wrap: anywhere; }
+.nsp-outline button time, .nsp-lesson time { flex-shrink: 0; }
+
+@media (max-width: 1100px) {
+  .platform-header, .platform-header-host { position: relative; }
+  .platform-header-inner { flex-wrap: wrap; gap: 12px; }
+  .platform-brand { flex: 1 1 100%; }
+  .platform-account { flex: 1 1 280px; }
+  .ui-account-frame { width: 100%; }
+  .platform-nav-inner { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; overflow: visible; }
+  .platform-nav-inner > :is(a, button) { padding: 10px 8px; min-width: 0; }
+}
+
+@media (max-width: 800px) {
+  .sdgs-shell :is(.admin-container, .matching-embedded .admin-container) { flex-direction: column; }
+  .sdgs-shell .admin-sidebar { width: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .sdgs-shell .sidebar-btn { white-space: normal; min-width: 0; }
+  #tab-dashboard > [style*="grid-template-columns"] { grid-template-columns: minmax(0, 1fr) !important; }
+  .sdgs-shell .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .sdgs-shell :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea) { font-size: 16px; }
+  .sdgs-shell [id$="Modal"].fixed { padding: 12px; }
+  .sdgs-shell [id$="Modal"].fixed > div { max-height: calc(100dvh - 24px); }
+  .nsp-admin, .nsp-editor-body { padding: 16px; }
+  #nspEditor header, #nspEditor footer { padding: 14px 16px; }
+  .nsp-admin-heading input { max-width: 100%; }
+  .nsp-edit-section > .nsp-admin-heading { flex-wrap: wrap; }
+  .nsp-row-actions { flex-wrap: wrap; }
+  #worksheetDetailModal > div > div:first-child { flex-wrap: wrap; gap: 10px; }
+}
+
+@media (max-width: 600px) {
+  :root { --layout-pad: 16px; }
+  .platform-nav-inner { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .platform-nav-inner > :is(a, button) { gap: 6px; font-size: 13px; }
+  .platform-brand small { font-size: 11px; }
+  .platform-account { flex-basis: 100%; width: 100%; }
+  .platform-account > div { min-width: 0; overflow-wrap: anywhere; }
+  .platform-tools { display: flex; flex-wrap: wrap; }
+  .platform-tools button { flex: 1 1 120px; min-width: 0; }
+  .module-section-heading { align-items: flex-start; flex-direction: column; gap: 6px; }
+  .sdgs-shell .page-header { padding: 18px 16px; gap: 14px; }
+  .sdgs-shell .page-header :is(h1, h2), .sdgs-shell .page-title { font-size: 24px; }
+  #adminSubTabsNav button { white-space: normal; min-width: 0; padding: 10px; }
+  .nsp-catalog-toolbar label:not(:has(input[type="checkbox"])) { display: grid; gap: 6px; }
+  .nsp-catalog-toolbar input:not([type="checkbox"]) { width: 100%; }
+  .nsp-admin-heading h3 { flex-basis: 100%; }
+  .nsp-form-grid, .nsp-edit-material { grid-template-columns: minmax(0, 1fr); }
+  .nsp-edit-section { padding: 12px; }
+  .nsp-player-header strong { flex-basis: 60%; min-width: 0; overflow-wrap: anywhere; }
+  .nsp-html-toolbar .ds-button, .nsp-row-actions .ds-button { min-height: 44px; }
+  .sdgs-shell .admin-sidebar { padding: 12px; }
+  .sdgs-shell .panel { padding: 16px; }
+  .panel-header { align-items: stretch; }
+  .panel-header > div { width: 100%; gap: 8px; }
+  .panel-header :is(input, select) { max-width: 100%; flex: 1 1 140px; }
+  .game-platform .options-grid { grid-template-columns: minmax(0, 1fr); }
+  .game-platform .modal-card { padding: 18px 14px; }
+  .game-platform .game-status-bar { flex-wrap: wrap; gap: 12px; }
+  .sdgs-shell .platform-footer-inner { gap: 10px; }
+}
+
+@media (max-height: 500px) and (max-width: 1100px) {
+  .sdgs-shell [id$="Modal"].fixed { align-items: flex-start; }
+}
