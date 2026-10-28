@@ -40,6 +40,54 @@ class RecordImportTests(unittest.TestCase):
         self.assertEqual(index.store.load()[0], saved["version"])
         self.assertEqual(self.client.post("/api/admin/attendance/import", json={"version": before["version"], "records": [self.item()]}).status_code, 409)
 
+    def test_leave_import_uses_course_date_and_preserves_signed_and_makeup_events(self):
+        self.login_admin()
+        for previous in ({}, {"status": "SIGNED_IN", "signed_at": "2026-09-15 18:00:00"},
+                         {"status": "MAKEUP_DONE", "makeup_date": "2026-09-20 12:00:00", "note": "original"}):
+            version, data = index.store.load()
+            data["attendances"]["1_1"] = previous
+            index.store.save(version, data)
+            version, _ = index.store.load()
+            record = self.item(signed_at="", makeup_date="", leave_at="2026-09-15")
+            response = self.client.post("/api/admin/attendance/import", json={"version": version, "records": [record]})
+            self.assertEqual(response.status_code, 200, response.text)
+            self.assertEqual(response.json()["count"], 1)
+            saved = index.store.load()[1]["attendances"]["1_1"]
+            self.assertEqual(saved["leave_at"], "2026-09-15")
+            self.assertEqual(saved["reason"], "系統匯入")
+            for key, value in previous.items():
+                if key != "status": self.assertEqual(saved[key], value)
+            self.assertEqual(saved["status"], "MAKEUP_DONE" if previous.get("makeup_date") else "ON_LEAVE")
+            data = index.store.load()[1]
+            course = next(c for c in data["courses"] if c["id"] == 1)
+            visible = next(r for r in index.course_leave_records(data, course) if r["student_id"] == 1)
+            self.assertEqual(visible["reason"], "系統匯入")
+            self.assertEqual(visible["updated_at"], "2026-09-15")
+
+    def test_existing_leave_is_skipped_without_overwriting_any_fields(self):
+        self.login_admin()
+        for previous in ({"status": "ON_LEAVE", "reason": "original", "updated_at": "2026-09-14"},
+                         {"status": "MAKEUP_DONE", "leave_at": "2026-09-13", "reason": "original"}):
+            version, data = index.store.load()
+            data["attendances"]["1_1"] = previous
+            index.store.save(version, data)
+            before = index.store.load()
+            response = self.client.post("/api/admin/attendance/import", json={"version": before[0],
+                "records": [self.item(signed_at="", makeup_date="", leave_at="2026-09-15")]})
+            self.assertEqual(response.status_code, 200, response.text)
+            self.assertEqual(response.json()["count"], 0)
+            self.assertEqual(index.store.load(), before)
+
+    def test_leave_import_rejects_invalid_date_and_mixed_event_payload_atomically(self):
+        self.login_admin()
+        before = index.store.load()
+        for record in (self.item(signed_at="", makeup_date="", leave_at="2026-09-14"),
+                       self.item(signed_at="", makeup_date="", leave_at="invalid"),
+                       self.item(leave_at="2026-09-15")):
+            response = self.client.post("/api/admin/attendance/import", json={"version": before[0], "records": [record]})
+            self.assertEqual(response.status_code, 422)
+            self.assertEqual(index.store.load(), before)
+
     def test_invalid_rows_reject_the_entire_import(self):
         self.login_admin()
         before = index.store.load()
