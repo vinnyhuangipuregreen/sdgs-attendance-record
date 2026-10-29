@@ -126,7 +126,7 @@ def apply_backfill(data, student, course_id, action, now, actor, cancel=False):
     if view["status"] != "ABSENT" or view["signed"] or view["leave_at"] or view["makeup_date"]:
         raise HTTPException(409, "僅限未出席且尚無簽到、請假或補課紀錄的課程可補登錄")
     timestamp = now.strftime("%Y-%m-%d %H:%M:%S")
-    saved = {**record, "status": statuses[action], action + "_note": "補登錄", "updated_at": timestamp,
+    saved = {**record, "status": statuses[action], "note": "補登錄", action + "_note": "補登錄", "updated_at": timestamp,
              "backfill": {"action": action, "previous": copy.deepcopy(previous), "by": actor, "at": timestamp}}
     if action == "checkin":
         saved["signed_at"] = timestamp

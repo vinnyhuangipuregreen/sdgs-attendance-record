@@ -39,6 +39,7 @@ class StudentBackfillTests(unittest.TestCase):
                 saved = records['9_4']
                 self.assertEqual(saved['status'], status)
                 self.assertEqual(saved[action + '_note'], '補登錄')
+                self.assertEqual(saved['note'], '補登錄')
                 self.assertEqual(saved['backfill']['by'], '管理員')
                 self.assertEqual(saved['backfill']['at'], '2026-10-30 12:00:00')
                 self.assertEqual({k:v for k,v in records.items() if k != '9_4'}, before)
