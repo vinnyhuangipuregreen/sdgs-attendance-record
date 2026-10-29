@@ -50,8 +50,8 @@ class StudentBackfillTests(unittest.TestCase):
                     self.assertIn(label + ' (補)', page.text)
                 page = self.client.get('/admin/students/433/backfill')
                 self.assertIn('取消：✓ ' + label + ' (補)', page.text)
-                self.assertNotIn('bg-red-600 hover:bg-red-700 text-white', page.text)
-                for other in ['checkin', 'leave', 'makeup']:
+                self.assertEqual(page.text.count('bg-red-600 hover:bg-red-700 text-white'), 1 if action == 'leave' else 0)
+                for other in (['checkin', 'leave'] if action == 'leave' else ['checkin', 'leave', 'makeup']):
                     self.assertEqual(self.client.post(self.base + 'backfill-' + other, json={'course_id':4}).status_code, 409)
                 if action == 'checkin':
                     self.assertEqual(self.client.post(self.base + 'makeup', json={'course_id':4}).status_code, 409)
@@ -124,3 +124,31 @@ class StudentBackfillTests(unittest.TestCase):
         self.assertEqual(saved['note'],'補登錄')
         self.assertEqual(self.client.post(self.base+'cancel-leave',json={'course_id':4}).status_code,200)
         self.assertEqual(index.store.load()[1]['attendances'],before[1]['attendances'])
+
+    def test_backfill_leave_allows_makeup_and_cancels_in_reverse_order(self):
+        original = copy.deepcopy(index.store.load()[1]['attendances'])
+        self.assertEqual(self.client.post(self.base+'backfill-leave',json={'course_id':4,'reason':'出差'}).status_code,200)
+        leave = copy.deepcopy(index.store.load()[1]['attendances']['9_4'])
+        page = self.client.get('/admin/students/433/backfill')
+        self.assertIn("onclick=\"doBackfill(4, 'makeup')\"",page.text)
+        self.assertNotIn("onclick=\"doBackfill(4, 'checkin')\"",page.text)
+        self.assertNotIn("onclick=\"doBackfill(4, 'leave')\"",page.text)
+        self.assertEqual(self.client.post(self.base+'backfill-makeup',json={'course_id':4}).status_code,200)
+        saved = index.store.load()[1]['attendances']['9_4']
+        self.assertEqual(saved['status'],'MAKEUP_DONE')
+        self.assertEqual(saved['reason'],'出差')
+        self.assertEqual(saved['leave_at'],leave['leave_at'])
+        self.assertEqual(saved['leave_note'],'補登錄')
+        self.assertEqual(saved['makeup_note'],'補登錄')
+        for mode in ['dashboard','backfill']:
+            page = self.client.get('/admin/students/433/'+mode)
+            self.assertIn('✓ 已請假 (補)',page.text)
+            self.assertIn('✓ 已補課 (補)',page.text)
+        before = index.store.load()
+        self.assertEqual(self.client.post(self.base+'cancel-leave',json={'course_id':4}).status_code,409)
+        self.assertEqual(self.client.post(self.base+'backfill-makeup',json={'course_id':4}).status_code,409)
+        self.assertEqual(index.store.load(),before)
+        self.assertEqual(self.client.post(self.base+'cancel-makeup',json={'course_id':4}).status_code,200)
+        self.assertEqual(index.store.load()[1]['attendances']['9_4'],leave)
+        self.assertEqual(self.client.post(self.base+'cancel-leave',json={'course_id':4}).status_code,200)
+        self.assertEqual(index.store.load()[1]['attendances'],original)

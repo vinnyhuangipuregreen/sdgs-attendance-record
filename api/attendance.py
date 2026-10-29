@@ -123,8 +123,10 @@ def apply_backfill(data, student, course_id, action, now, actor, cancel=False, r
             data["attendances"][key] = copy.deepcopy(backfill["previous"])
         return {"success": True}
     view = record_view(course, record, now)
-    if view["status"] != "ABSENT" or view["signed"] or view["leave_at"] or view["makeup_date"]:
-        raise HTTPException(409, "僅限未出席且尚無簽到、請假或補課紀錄的課程可補登錄")
+    absent = view["status"] == "ABSENT" and not view["leave_at"]
+    makeup_after_leave = action == "makeup" and view["status"] == "ON_LEAVE" and record.get("leave_note") == "補登錄"
+    if not (absent or makeup_after_leave) or view["signed"] or view["makeup_date"]:
+        raise HTTPException(409, "僅限未出席課程可補登錄；已請假 (補) 的課程僅可補登錄補課")
     if action == "leave" and (not isinstance(reason, str) or not reason.strip()):
         raise HTTPException(422, "請填寫請假原因！")
     timestamp = now.strftime("%Y-%m-%d %H:%M:%S")
