@@ -118,6 +118,18 @@ test('backfill requires exact named confirmation for each action and cancellatio
     env.confirm(false);await task;
     assert.equal(env.calls.filter(c=>c.path).length,0);
     task=env.context.doBackfill(4,action);env.confirm(true);await task;
+    if (action === 'leave') {
+      assert.equal(env.calls.filter(c=>c.path).length,0);
+      assert.equal(env.element('leaveCourseTitle').textContent,'測試課程');
+      assert.equal(env.element('leaveReason').value,'');
+      env.element('leaveReason').value='  ';
+      await env.context.submitLeave();
+      assert.equal(env.calls.filter(c=>c.path).length,0);
+      assert.equal(env.alerts.at(-1),'請填寫請假原因！');
+      env.element('leaveReason').value='  因事無法出席  ';
+      await env.context.submitLeave();
+      assert.equal(env.calls.find(c=>c.path).payload.reason,'因事無法出席');
+    }
     assert.equal(env.calls.find(c=>c.path).path,'/api/admin/attendance/students/433/backfill-'+action);
     assert.equal(env.calls.find(c=>c.path).payload.course_id,4);
     assert.deepEqual(env.calls.at(-1),{reload:'/admin/students/433/backfill'});
@@ -126,4 +138,18 @@ test('backfill requires exact named confirmation for each action and cancellatio
     env.confirm(true);await task;
     assert.equal(env.calls.filter(c=>c.path).at(-1).path,'/api/admin/attendance/students/433/cancel-'+action);
   }
+});
+
+
+test('cancelling the reason form writes nothing and normal leave resets the action', async()=>{
+  const env=setup();
+  env.context.document.body={dataset:{studentName:'測試學員'}};
+  env.context.document.querySelector=()=>({dataset:{courseTitle:'測試課程'}});
+  let task=env.context.doBackfill(4,'leave');env.confirm(true);await task;
+  env.context.closeLeaveModal();
+  assert.equal(env.calls.filter(c=>c.path).length,0);
+  task=env.context.openLeaveModal(2,'一般請假');env.confirm(true);await task;
+  env.element('leaveReason').value='一般事由';
+  await env.context.submitLeave();
+  assert.equal(env.calls.find(c=>c.path).path,'/api/attendance/leave');
 });

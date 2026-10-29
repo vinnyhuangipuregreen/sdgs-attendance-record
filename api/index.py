@@ -254,7 +254,7 @@ async def admin_student_attendance(platform_id: int, action: str, request: Reque
     if action.startswith(("backfill-", "cancel-")):
         admin = get_current_admin(request)
         return apply_backfill(request.state.db, student, data.get("course_id"), action.split("-", 1)[1],
-                              taiwan_now(), admin.get("name") or admin.get("email"), action.startswith("cancel-"))
+                              taiwan_now(), admin.get("name") or admin.get("email"), action.startswith("cancel-"), data.get("reason", ""))
     return apply_action(request.state.db, student, data.get("course_id"), action, taiwan_now(), data.get("reason", ""))
 
 

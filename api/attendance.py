@@ -103,7 +103,7 @@ def apply_action(data, student, course_id, action, now, reason=""):
     return {"success": True, "record": record}
 
 
-def apply_backfill(data, student, course_id, action, now, actor, cancel=False):
+def apply_backfill(data, student, course_id, action, now, actor, cancel=False, reason=""):
     if action not in {"checkin", "leave", "makeup"}:
         raise HTTPException(404, "查無此補登錄功能")
     course = next((c for c in data["courses"] if str(c["id"]) == str(course_id)), None)
@@ -125,13 +125,15 @@ def apply_backfill(data, student, course_id, action, now, actor, cancel=False):
     view = record_view(course, record, now)
     if view["status"] != "ABSENT" or view["signed"] or view["leave_at"] or view["makeup_date"]:
         raise HTTPException(409, "僅限未出席且尚無簽到、請假或補課紀錄的課程可補登錄")
+    if action == "leave" and (not isinstance(reason, str) or not reason.strip()):
+        raise HTTPException(422, "請填寫請假原因！")
     timestamp = now.strftime("%Y-%m-%d %H:%M:%S")
     saved = {**record, "status": statuses[action], "note": "補登錄", action + "_note": "補登錄", "updated_at": timestamp,
              "backfill": {"action": action, "previous": copy.deepcopy(previous), "by": actor, "at": timestamp}}
     if action == "checkin":
         saved["signed_at"] = timestamp
     elif action == "leave":
-        saved.update(leave_at=timestamp, reason="補登錄")
+        saved.update(leave_at=timestamp, reason=reason.strip())
     else:
         saved.update(makeup_date=timestamp, platform_email=student.get("email_pathdemy") or student["email"], note="補登錄")
     data["attendances"][key] = saved

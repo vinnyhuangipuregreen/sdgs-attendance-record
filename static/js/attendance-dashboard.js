@@ -59,8 +59,11 @@ async function doCheckin(courseId) {
   await sendAttendance('checkin', courseId, '🎉 簽到成功！');
 }
 
-async function openLeaveModal(courseId, courseTitle) {
-  if (!(await confirmAttendance('確定要[請假]?一旦送出就不可修改！'))) return;
+let leaveAction = 'leave';
+
+async function openLeaveModal(courseId, courseTitle, backfill = false) {
+  if (!backfill && !(await confirmAttendance('確定要[請假]?一旦送出就不可修改！'))) return;
+  leaveAction = backfill ? 'backfill-leave' : 'leave';
   document.getElementById('leaveCourseId').value = courseId;
   document.getElementById('leaveCourseTitle').textContent = courseTitle;
   document.getElementById('leaveReason').value = '';
@@ -74,7 +77,7 @@ function closeLeaveModal() {
 async function submitLeave() {
   const reason = document.getElementById('leaveReason').value.trim();
   if (!reason) return alert('請填寫請假原因！');
-  await sendAttendance('leave', document.getElementById('leaveCourseId').value, '已完成請假登記！', reason);
+  await sendAttendance(leaveAction, document.getElementById('leaveCourseId').value, '已完成請假登記！', reason);
 }
 
 async function doMakeup(courseId) {
@@ -92,5 +95,6 @@ async function doBackfill(courseId, action, cancel = false) {
     ? `確認要取消[${name}]的[${title}]的[${label} (補登錄)]?`
     : `確認要協助[${name}]的[${title}]的[${label} (補登錄)]?`;
   if (!(await confirmAttendance(message))) return;
+  if (action === 'leave' && !cancel) return openLeaveModal(courseId, title, true);
   await sendAttendance((cancel ? 'cancel-' : 'backfill-') + action, courseId, cancel ? '已取消補登錄並還原原本紀錄。' : '補登錄成功！');
 }

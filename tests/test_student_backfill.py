@@ -33,13 +33,15 @@ class StudentBackfillTests(unittest.TestCase):
         for action, status, label in [('checkin', 'SIGNED_IN', '已簽到'), ('leave', 'ON_LEAVE', '已請假'), ('makeup', 'MAKEUP_DONE', '已補課')]:
             with self.subTest(action=action):
                 before = copy.deepcopy(index.store.load()[1]['attendances'])
-                result = self.client.post(self.base + 'backfill-' + action, json={'course_id': 4})
+                result = self.client.post(self.base + 'backfill-' + action, json={'course_id': 4, 'reason':'家中有事'})
                 self.assertEqual(result.status_code, 200, result.text)
                 records = index.store.load()[1]['attendances']
                 saved = records['9_4']
                 self.assertEqual(saved['status'], status)
                 self.assertEqual(saved[action + '_note'], '補登錄')
                 self.assertEqual(saved['note'], '補登錄')
+                if action == 'leave':
+                    self.assertEqual(saved['reason'], '家中有事')
                 self.assertEqual(saved['backfill']['by'], '管理員')
                 self.assertEqual(saved['backfill']['at'], '2026-10-30 12:00:00')
                 self.assertEqual({k:v for k,v in records.items() if k != '9_4'}, before)
@@ -78,7 +80,7 @@ class StudentBackfillTests(unittest.TestCase):
         self.assertEqual(self.client.post(self.base + 'backfill-checkin', json={'course_id':999}).status_code,404)
 
     def test_followup_makeup_cannot_be_overwritten_by_cancelling_backfill_leave(self):
-        self.assertEqual(self.client.post(self.base + 'backfill-leave', json={'course_id':4}).status_code,200)
+        self.assertEqual(self.client.post(self.base + 'backfill-leave', json={'course_id':4,'reason':'家中有事'}).status_code,200)
         self.assertEqual(self.client.post(self.base + 'makeup', json={'course_id':4}).status_code,200)
         before = index.store.load()
         self.assertEqual(self.client.post(self.base + 'cancel-leave', json={'course_id':4}).status_code,409)
@@ -103,8 +105,22 @@ class StudentBackfillTests(unittest.TestCase):
         now = datetime(2026,10,30,tzinfo=TAIWAN)
         student = original['students'][0]
         apply_backfill(first,student,4,'checkin',now,'管理員一')
-        apply_backfill(second,student,4,'leave',now,'管理員二')
+        apply_backfill(second,student,4,'leave',now,'管理員二',reason='家中有事')
         index.store.save_records(original,first)
         with self.assertRaises(ConcurrentUpdate):
             index.store.save_records(original,second)
         self.assertEqual(index.store.load()[1]['attendances']['9_4']['status'],'SIGNED_IN')
+
+    def test_backfill_leave_requires_a_real_reason_without_writing_on_failure(self):
+        before = index.store.load()
+        for body in [{'course_id':4}, {'course_id':4,'reason':''}, {'course_id':4,'reason':'  '}, {'course_id':4,'reason':123}]:
+            result = self.client.post(self.base+'backfill-leave',json=body)
+            self.assertEqual(result.status_code,422,result.text)
+            self.assertEqual(index.store.load(),before)
+        result = self.client.post(self.base+'backfill-leave',json={'course_id':4,'reason':'  出差  '})
+        self.assertEqual(result.status_code,200,result.text)
+        saved = index.store.load()[1]['attendances']['9_4']
+        self.assertEqual(saved['reason'],'出差')
+        self.assertEqual(saved['note'],'補登錄')
+        self.assertEqual(self.client.post(self.base+'cancel-leave',json={'course_id':4}).status_code,200)
+        self.assertEqual(index.store.load()[1]['attendances'],before[1]['attendances'])
