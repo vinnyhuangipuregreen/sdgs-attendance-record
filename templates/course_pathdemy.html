@@ -197,7 +197,8 @@
                   <th class="py-3.5 px-4">Email</th>
                   <th class="py-3.5 px-4 text-blue-700">Email(補課平台)</th>
                   <th class="py-3.5 px-4">聯絡電話</th>
-                  <th class="py-3.5 px-4">請假時間</th><th class="py-3.5 px-4">補課時間</th>
+                  <th class="py-3.5 px-4">補課狀況</th><th class="py-3.5 px-4">補課時間</th>
+                  <th class="py-3.5 px-4">備註</th>
                   <th class="py-3.5 px-4 text-center">刪除補課</th>
                 </tr>
               </thead>
@@ -264,7 +265,7 @@
     let makeupRecords = JSON.parse(document.getElementById('serverMakeupData').textContent).map(record => ({
       id:String(record.id), student_id:record.id, student_name:record.name,
       email:record.email, platform_email:record.email_pathdemy, phone:record.phone,
-      makeup_time:record.makeup_date, leave_at:record.leave_at
+      makeup_time:record.makeup_date, status_label:record.status_label, note:record.note
     }));
     let recordToDeleteId = null;
     document.addEventListener('DOMContentLoaded', () => {
@@ -364,7 +365,8 @@
             <td class="py-3.5 px-4 text-slate-600 font-mono text-xs">${escapeHtml(rec.email)}</td>
             <td class="py-3.5 px-4 font-mono text-xs text-blue-700 font-semibold">${escapeHtml(rec.platform_email)}</td>
             <td class="py-3.5 px-4 text-slate-600 font-mono text-xs">${escapeHtml(rec.phone)}</td>
-            <td class="py-3.5 px-4 font-mono text-xs text-slate-500">${escapeHtml(rec.leave_at || "-")}</td><td class="py-3.5 px-4 font-mono text-xs text-slate-500">${escapeHtml(rec.makeup_time)}</td>
+            <td class="py-3.5 px-4 font-mono text-xs text-slate-500"><span class="px-3 py-1 bg-purple-100 text-purple-800 rounded-full font-bold whitespace-nowrap">✓ ${escapeHtml(rec.status_label)}</span></td><td class="py-3.5 px-4 font-mono text-xs text-slate-500">${escapeHtml(rec.makeup_time)}</td>
+            <td class="py-3.5 px-4 text-xs text-slate-600">${escapeHtml(rec.note)}</td>
             <td class="py-3.5 px-4 text-center">
               <button 
                 type="button" 

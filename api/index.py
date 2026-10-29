@@ -699,7 +699,8 @@ def course_makeup_records(data, course):
                 "phone": s["phone"],
                 "makeup_date": rec.get("makeup_date", "-"),
                 "leave_at": rec.get("leave_at", ""),
-                "note": rec.get("note", "管理員批次匯入"),
+                "note": rec.get("makeup_note") or rec.get("note", "管理員批次匯入"),
+                "status_label": "已補課" + (" (補)" if rec.get("makeup_note") == "補登錄" else ""),
                 "imported_by": rec.get("imported_by", "")
             })
     return makeup_records
@@ -741,16 +742,16 @@ async def export_course_makeup(course_id: int, request: Request, name: str = "",
     workbook = openpyxl.Workbook()
     sheet = workbook.active
     sheet.title = "補課名冊"
-    sheet.append(["學員姓名", "Email", "Email(補課平台)", "聯絡電話", "請假時間", "補課時間"])
+    sheet.append(["學員姓名", "Email", "Email(補課平台)", "聯絡電話", "補課狀況", "補課時間", "備註"])
     for row in rows:
-        sheet.append([row["name"], row["email"], row["email_pathdemy"], row["phone"], row["leave_at"] or "-", row["makeup_date"]])
+        sheet.append([row["name"], row["email"], row["email_pathdemy"], row["phone"], row["status_label"], row["makeup_date"], row["note"]])
     for row in sheet:
         for cell in row:
             if isinstance(cell.value, str):
                 cell.data_type = "s"
     sheet.freeze_panes = "A2"
     sheet.auto_filter.ref = sheet.dimensions
-    for column, width in zip("ABCDEF", (20, 36, 36, 18, 24, 24)):
+    for column, width in zip("ABCDEFG", (20, 36, 36, 18, 20, 24, 30)):
         sheet.column_dimensions[column].width = width
     stream = io.BytesIO()
     workbook.save(stream)
@@ -889,13 +890,17 @@ def attendance_records(data, course):
     now = taiwan_now()
     for s in data["students"]:
         key = f"{s['id']}_{course['id']}"
-        rec = data["attendances"].get(key)
+        rec = data["attendances"].get(key) or {}
         status = record_view(course, rec, now)["status"]
+        signed = status == "SIGNED_IN" or bool(rec.get("signed_at"))
+        action = "checkin" if signed else "leave" if status == "ON_LEAVE" else "makeup" if status == "MAKEUP_DONE" else ""
+        note = rec.get(action + "_note", "") if action else ""
+        label = "已簽到" if signed else {"ON_LEAVE":"已請假", "MAKEUP_DONE":"已補課", "ABSENT":"未出席", "PENDING":"未簽到"}.get(status, "未簽到")
         student_records.append({
             "id": s["id"], "name": s["name"], "email": s["email"],
             "email_pathdemy": s.get("email_pathdemy", s["email"]), "phone": s["phone"],
             "status": status, "signed_at": rec.get("signed_at", "-") if rec else "-",
-            "signed": status == "SIGNED_IN" or bool(rec and rec.get("signed_at"))
+            "signed": signed, "note": note, "status_label": label + (" (補)" if note == "補登錄" else "")
         })
     return student_records
 
@@ -916,18 +921,17 @@ async def export_course_attendance(course_id: int, request: Request, name: str =
     workbook = openpyxl.Workbook()
     sheet = workbook.active
     sheet.title = "簽到名冊"
-    sheet.append(["ID", "姓名", "Email", "Email(補課平台)", "聯絡電話", "簽到狀況", "簽到時間"])
-    labels = {"ABSENT": "未出席", "ON_LEAVE": "已請假", "MAKEUP_DONE": "已補課", "PENDING": "未簽到"}
+    sheet.append(["ID", "姓名", "Email", "Email(補課平台)", "聯絡電話", "簽到狀況", "簽到時間", "備註"])
     for row in rows:
         sheet.append([row["id"], row["name"], row["email"], row["email_pathdemy"], row["phone"],
-                      "已簽到" if row["signed"] else labels.get(row["status"], "未簽到"), row["signed_at"]])
+                      row["status_label"], row["signed_at"], row["note"]])
     for row in sheet:
         for cell in row:
             if isinstance(cell.value, str):
                 cell.data_type = "s"
     sheet.freeze_panes = "A2"
     sheet.auto_filter.ref = sheet.dimensions
-    for column, width in zip("ABCDEFG", (10, 20, 36, 36, 18, 16, 24)):
+    for column, width in zip("ABCDEFGH", (10, 20, 36, 36, 18, 20, 24, 24)):
         sheet.column_dimensions[column].width = width
     stream = io.BytesIO()
     workbook.save(stream)
@@ -967,7 +971,8 @@ def course_leave_records(data, course):
             leave_records.append({
                 "student_id": s["id"], "name": s["name"], "email": s["email"],
                 "email_pathdemy": s.get("email_pathdemy", s["email"]), "phone": s["phone"],
-                "reason": rec.get("reason", "未填寫"), "updated_at": rec.get("leave_at") or rec.get("updated_at", "-")
+                "reason": rec.get("reason", "未填寫"), "updated_at": rec.get("leave_at") or rec.get("updated_at", "-"),
+                "status_label": "已請假" + (" (補)" if rec.get("leave_note") == "補登錄" else ""), "note": rec.get("leave_note", "")
             })
     return leave_records
 
@@ -986,16 +991,16 @@ async def export_course_leaves(course_id: int, request: Request, name: str = "",
     workbook = openpyxl.Workbook()
     sheet = workbook.active
     sheet.title = "請假名冊"
-    sheet.append(["學員姓名", "Email", "Email(補課平台)", "聯絡電話", "請假原因", "申請時間"])
+    sheet.append(["學員姓名", "Email", "Email(補課平台)", "聯絡電話", "請假狀況", "請假原因", "申請時間", "備註"])
     for row in rows:
-        sheet.append([row[key] for key in ("name", "email", "email_pathdemy", "phone", "reason", "updated_at")])
+        sheet.append([row[key] for key in ("name", "email", "email_pathdemy", "phone", "status_label", "reason", "updated_at", "note")])
     for row in sheet:
         for cell in row:
             if isinstance(cell.value, str):
                 cell.data_type = "s"
     sheet.freeze_panes = "A2"
     sheet.auto_filter.ref = sheet.dimensions
-    for column, width in zip("ABCDEF", (20, 36, 36, 18, 48, 24)):
+    for column, width in zip("ABCDEFGH", (20, 36, 36, 18, 20, 48, 24, 24)):
         sheet.column_dimensions[column].width = width
     stream = io.BytesIO()
     workbook.save(stream)

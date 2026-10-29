@@ -94,8 +94,10 @@
                   <th class="p-3.5">Email</th>
                   <th class="p-3.5 text-blue-700">Email(補課平台)</th>
                   <th class="p-3.5">聯絡電話</th>
+                  <th class="p-3.5">請假狀況</th>
                   <th class="p-3.5">請假原因</th>
                   <th class="p-3.5">申請時間</th>
+                  <th class="p-3.5">備註</th>
                   <th class="p-3.5 text-right w-32">操作</th>
                 </tr>
               </thead>
@@ -110,10 +112,12 @@
                   <td class="p-3.5 text-gray-600 text-xs">{{ r.email }}</td>
                   <td class="p-3.5 text-blue-700 font-medium text-xs">{{ r.email_pathdemy }}</td>
                   <td class="p-3.5 text-gray-600 text-xs">{{ r.phone }}</td>
+                  <td class="p-3.5"><span class="px-3 py-1 bg-amber-100 text-amber-800 text-xs rounded-full font-bold whitespace-nowrap">✓ {{ r.status_label }}</span></td>
                   <td class="p-3.5 text-xs text-gray-700 max-w-xs break-words bg-orange-50/40 rounded-lg">
                     {{ r.reason }}
                   </td>
                   <td class="p-3.5 text-xs text-gray-400 font-mono">{{ r.updated_at }}</td>
+                  <td class="p-3.5 text-xs text-gray-600">{{ r.note }}</td>
                   <td class="p-3.5 text-right">
                     <button onclick="cancelLeave({{ course.id }}, {{ r.student_id }}, '{{ r.name }}')" 
                       class="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold rounded-xl transition shadow-xs">

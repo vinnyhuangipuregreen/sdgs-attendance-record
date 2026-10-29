@@ -114,6 +114,7 @@
               <th class="p-3.5">聯絡電話</th>
               <th class="p-3.5">簽到狀況</th>
               <th class="p-3.5">簽到時間</th>
+              <th class="p-3.5">備註</th>
             </tr>
           </thead>
           <tbody id="attendanceTableBody" class="divide-y divide-gray-100">
@@ -132,14 +133,14 @@
               <td class="p-3.5">
                 {% if r.signed %}
                   <span class="px-3 py-1 bg-[#E8F5E9] text-[#2E7D32] text-xs rounded-full font-bold inline-block">
-                    ✓ 已簽到
+                    ✓ {{ r.status_label }}
                   </span>
                 {% elif r.status == 'ABSENT' %}
                   <span class="px-3 py-1 bg-rose-100 text-rose-700 text-xs rounded-full font-bold inline-block">未出席</span>
                 {% elif r.status == 'ON_LEAVE' %}
-                  <span class="px-3 py-1 bg-amber-100 text-amber-800 text-xs rounded-full font-bold inline-block">✓ 已請假</span>
+                  <span class="px-3 py-1 bg-amber-100 text-amber-800 text-xs rounded-full font-bold inline-block">✓ {{ r.status_label }}</span>
                 {% elif r.status == 'MAKEUP_DONE' %}
-                  <span class="px-3 py-1 bg-purple-100 text-purple-800 text-xs rounded-full font-bold inline-block">✓ 已補課</span>
+                  <span class="px-3 py-1 bg-purple-100 text-purple-800 text-xs rounded-full font-bold inline-block">✓ {{ r.status_label }}</span>
                 {% else %}
                   <span class="px-3 py-1 bg-gray-100 text-gray-400 text-xs rounded-full font-medium inline-block">
                     未簽到
@@ -147,6 +148,7 @@
                 {% endif %}
               </td>
               <td class="p-3.5 text-xs text-gray-400 font-mono">{{ r.signed_at }}</td>
+              <td class="p-3.5 text-xs text-gray-600">{{ r.note }}</td>
             </tr>
             {% endfor %}
           </tbody>

@@ -34,12 +34,12 @@ class LeavesExportTests(unittest.TestCase):
             response = self.export()
         self.assertEqual(unquote(response.headers["content-disposition"]), "attachment; filename*=UTF-8''1_導論：測試_課程_請假_20261020123456.xlsx")
         rows = self.rows(response)
-        self.assertEqual(rows[0], ("學員姓名", "Email", "Email(補課平台)", "聯絡電話", "請假原因", "申請時間"))
+        self.assertEqual(rows[0], ("學員姓名", "Email", "Email(補課平台)", "聯絡電話", "請假狀況", "請假原因", "申請時間", "備註"))
         self.assertEqual(len(rows), 3)
-        self.assertEqual(rows[1][3:], ("0912345671", "=請假事由", "2026-09-14 10:00:00"))
-        self.assertEqual(rows[2][5], "2026-09-14 11:00:00")
+        self.assertEqual(rows[1][3:], ("0912345671", "已請假", "=請假事由", "2026-09-14 10:00:00", None))
+        self.assertEqual(rows[2][6], "2026-09-14 11:00:00")
         sheet = openpyxl.load_workbook(io.BytesIO(response.content)).active
-        self.assertEqual(sheet["E2"].data_type, "s")
+        self.assertEqual(sheet["F2"].data_type, "s")
         self.assertEqual(sheet["D2"].data_type, "s")
         self.assertEqual(index.store.load(), before)
 

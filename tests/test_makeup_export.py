@@ -34,10 +34,10 @@ class MakeupExportTests(unittest.TestCase):
             response = self.export()
         self.assertEqual(unquote(response.headers["content-disposition"]), "attachment; filename*=UTF-8''1_導論：測試_課程_補課_20261020123456.xlsx")
         rows = self.rows(response)
-        self.assertEqual(rows[0], ("學員姓名", "Email", "Email(補課平台)", "聯絡電話", "請假時間", "補課時間"))
+        self.assertEqual(rows[0], ("學員姓名", "Email", "Email(補課平台)", "聯絡電話", "補課狀況", "補課時間", "備註"))
         self.assertEqual(len(rows), 3)
-        self.assertEqual(rows[1][3:], ("0912345671", "2026-09-14 10:00:00", "2026-09-20 00:00:00"))
-        self.assertEqual(rows[2][4:], ("-", "2026/09/21 00:00:00"))
+        self.assertEqual(rows[1][3:], ("0912345671", "已補課", "2026-09-20 00:00:00", "管理員批次匯入"))
+        self.assertEqual(rows[2][4:], ("已補課", "2026/09/21 00:00:00", "管理員批次匯入"))
         self.assertEqual(rows[1][2], "alternate@example.invalid")
         sheet = openpyxl.load_workbook(io.BytesIO(response.content)).active
         self.assertEqual(sheet["A2"].data_type, "s")

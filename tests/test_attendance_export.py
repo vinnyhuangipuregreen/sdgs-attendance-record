@@ -47,7 +47,7 @@ class AttendanceExportTests(unittest.TestCase):
         sheet = self.sheet(response)
         self.assertEqual(unquote(response.headers["content-disposition"]), "attachment; filename*=UTF-8''1_導論：測試_課程_簽到_20261020123456.xlsx")
         rows = list(sheet.values)
-        self.assertEqual(rows[0], ("ID", "姓名", "Email", "Email(補課平台)", "聯絡電話", "簽到狀況", "簽到時間"))
+        self.assertEqual(rows[0], ("ID", "姓名", "Email", "Email(補課平台)", "聯絡電話", "簽到狀況", "簽到時間", "備註"))
         self.assertEqual(len(rows), 4)
         self.assertEqual([r[5] for r in rows[1:]], ["已簽到", "已簽到", "已請假"])
         self.assertEqual(sheet["B2"].data_type, "s")
