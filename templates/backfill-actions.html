@@ -1,0 +1,13 @@
+<div class="course-record-actions">
+  {% set eligible = course.status == 'ABSENT' and not course.signed and not course.leave_at and not course.makeup_date %}
+  {% for action, label, completed in [('checkin', '簽到', '已簽到'), ('leave', '請假', '已請假'), ('makeup', '補課', '已補課')] %}
+    {% set marked = course.get(action + '_note') == '補登錄' %}
+    <div class="space-y-2">
+      <button type="button" {% if not eligible %}disabled{% else %}onclick="doBackfill({{ course.id }}, '{{ action }}')"{% endif %}
+        class="w-full py-2.5 text-sm font-semibold rounded-xl {% if eligible %}bg-red-600 hover:bg-red-700 text-white{% else %}bg-gray-100 text-gray-500 cursor-not-allowed{% endif %}">{% if marked %}✓ {{ completed }} (補){% else %}{{ label }} (補登錄){% endif %}</button>
+      {% if marked and course.backfill and course.backfill.action == action and course.status == {'checkin':'SIGNED_IN', 'leave':'ON_LEAVE', 'makeup':'MAKEUP_DONE'}[action] %}
+      <button type="button" data-backfill-cancel onclick="doBackfill({{ course.id }}, '{{ action }}', true)" class="w-full py-2 text-red-700 border border-red-300 rounded-xl text-sm">取消：✓ {{ completed }} (補)</button>
+      {% endif %}
+    </div>
+  {% endfor %}
+</div>

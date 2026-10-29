@@ -12,17 +12,17 @@
     }
   </style>
   <link rel="stylesheet" href="/static/css/design-system.css?v=20261024_restore_attendance">
-  <link rel="stylesheet" href="/static/css/attendance.css?v=20261023_student_view">
+  <link rel="stylesheet" href="/static/css/attendance.css?v=20261030_backfill">
   <link rel="stylesheet" href="/static/css/responsive.css?v=20261027_rwd">
 </head>
-<body {% if admin_view %}data-attendance-api="/api/admin/attendance/students/{{ student.platform_id }}/" data-attendance-reload="/admin/students/{{ student.platform_id }}/dashboard"{% endif %} class="sdgs-shell attendance-platform course-dashboard min-h-screen">
+<body {% if admin_view %}data-attendance-api="/api/admin/attendance/students/{{ student.platform_id }}/" data-attendance-reload="/admin/students/{{ student.platform_id }}/{{ 'backfill' if backfill_view else 'dashboard' }}" data-student-name="{{ student.name }}"{% endif %} class="sdgs-shell attendance-platform course-dashboard {% if backfill_view %}attendance-backfill{% endif %} min-h-screen">
   {% include "platform-nav.html" %}
   <main class="ds-container course-main space-y-6">
 
     <section class="page-header course-welcome">
       <div><span class="eyebrow">持續學習・累積行動・共創永續未來</span>
       <h1>{% if admin_view %}{{ student.name }} 學員的課程登錄{% else %}歡迎，{{ student.name }} 學員{% endif %}</h1>
-      <p>{% if admin_view %}可依學員相同規則代為簽到、請假與補課登錄，操作將儲存至此學員的紀錄。{% else %}這裡是你的課程學習記錄，完成簽到、請假或補課，持續累積你的 SDGs 行動力！{% endif %}</p>
+      <p>{% if admin_view %}{% if backfill_view %}可為未出席課程補登錄簽到、請假或補課；補登錄紀錄可取消還原。{% else %}可依學員相同規則代為簽到、請假與補課登錄，操作將儲存至此學員的紀錄。{% endif %}{% else %}這裡是你的課程學習記錄，完成簽到、請假或補課，持續累積你的 SDGs 行動力！{% endif %}</p>
       <p class="text-sm">{{ student.email }}</p></div>
       {% if not admin_view %}<a href="/sso/logout" class="secondary-button">登出</a>{% endif %}
     </section>
@@ -58,7 +58,7 @@
 
       <div class="course-records">
         {% for course in courses %}
-        <div data-course-id="{{ course.id }}" class="course-card">
+        <div data-course-id="{{ course.id }}" data-course-title="{{ course.title }}" class="course-card">
           <div class="course-information" data-course-icon="{{ ['🌱', '🌍', '🌿', '📚'][loop.index0 % 4] }}">
               <div class="flex items-center gap-2 flex-wrap">
                 <span class="px-2 py-0.5 rounded bg-emerald-100/70 text-[#1F2937] text-xs font-bold font-mono">第 {{ course.id }} 堂</span>
@@ -74,13 +74,13 @@
             <!-- 當前狀態徽章 -->
             <div class="course-status">
               {% if course.signed %}
-                <div class="flex flex-wrap justify-end items-center gap-2"><span class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">✓ 已簽到</span><time class="text-xs text-gray-600">{{ course.signed_at }}</time></div>
+                <div class="flex flex-wrap justify-end items-center gap-2"><span class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">✓ 已簽到{% if course.checkin_note == '補登錄' %} (補){% endif %}</span><time class="text-xs text-gray-600">{{ course.signed_at }}</time></div>
               {% endif %}
               {% if course.status == 'ON_LEAVE' or course.leave_at %}
-                <div class="flex flex-wrap justify-end items-center gap-2"><span class="px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">✓ 已請假</span><time class="text-xs text-gray-600">{{ course.leave_at }}</time></div>
+                <div class="flex flex-wrap justify-end items-center gap-2"><span class="px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">✓ 已請假{% if course.leave_note == '補登錄' %} (補){% endif %}</span><time class="text-xs text-gray-600">{{ course.leave_at }}</time></div>
               {% endif %}
               {% if course.status == 'MAKEUP_DONE' %}
-                <div class="flex flex-wrap justify-end items-center gap-2"><span class="px-3 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-800 border border-purple-200">✓ 已補課</span><time class="text-xs text-gray-600">{{ course.makeup_date }}</time></div>
+                <div class="flex flex-wrap justify-end items-center gap-2"><span class="px-3 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-800 border border-purple-200">✓ 已補課{% if course.makeup_note == '補登錄' %} (補){% endif %}</span><time class="text-xs text-gray-600">{{ course.makeup_date }}</time></div>
               {% elif course.status == 'ABSENT' %}
                 <span class="px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-700 border border-rose-200">未出席</span>
               {% elif course.status == 'PENDING' %}
@@ -89,10 +89,13 @@
             </div>
 
           <!-- 操作按鈕群組 (簽到、請假、補課登錄) -->
+          {% if backfill_view %}
+            {% include "backfill-actions.html" %}
+          {% else %}
           <div class="course-record-actions">
             {# 1. 簽到按鈕 #}
             {% if course.signed %}
-              <button disabled class="w-full py-2.5 bg-emerald-50 text-emerald-700 border border-emerald-200 text-sm font-semibold rounded-xl cursor-not-allowed">✓ 已簽到</button>
+              <button disabled class="w-full py-2.5 bg-emerald-50 text-emerald-700 border border-emerald-200 text-sm font-semibold rounded-xl cursor-not-allowed">✓ 已簽到{% if course.checkin_note == '補登錄' %} (補){% endif %}</button>
             {% elif course.status in ['ON_LEAVE', 'MAKEUP_DONE'] or course.checkin_closed %}
               <button data-checkin-button="{{ course.id }}" disabled class="w-full py-2.5 bg-gray-100 text-gray-400 text-sm font-medium rounded-xl cursor-not-allowed">簽到</button>
             {% else %}
@@ -100,8 +103,8 @@
             {% endif %}
 
             {# 2. 請假按鈕 #}
-            {% if course.status == 'ON_LEAVE' %}
-              <button disabled class="w-full py-2.5 bg-amber-50 text-amber-700 border border-amber-200 text-sm font-semibold rounded-xl cursor-not-allowed">已請假</button>
+            {% if course.status == 'ON_LEAVE' or course.leave_at %}
+              <button disabled class="w-full py-2.5 bg-amber-50 text-amber-700 border border-amber-200 text-sm font-semibold rounded-xl cursor-not-allowed">✓ 已請假{% if course.leave_note == '補登錄' %} (補){% endif %}</button>
             {% elif course.status in ['SIGNED_IN', 'MAKEUP_DONE'] or course.closed %}
               <button disabled class="w-full py-2.5 bg-gray-100 text-gray-400 text-sm font-medium rounded-xl cursor-not-allowed">請假</button>
             {% else %}
@@ -110,13 +113,14 @@
 
             {# 3. 課程日期隔天起，尚未補課的學員可登錄 #}
             {% if course.status == 'MAKEUP_DONE' %}
-              <button disabled class="w-full py-2.5 bg-purple-50 text-purple-700 border border-purple-200 text-sm font-semibold rounded-xl cursor-not-allowed">✓ 已補課</button>
+              <button disabled class="w-full py-2.5 bg-purple-50 text-purple-700 border border-purple-200 text-sm font-semibold rounded-xl cursor-not-allowed">✓ 已補課{% if course.makeup_note == '補登錄' %} (補){% endif %}</button>
             {% elif course.makeup_available %}
               <button onclick="doMakeup({{ course.id }})" class="w-full py-2.5 bg-[#15803D] hover:bg-[#166534] text-white text-sm font-semibold rounded-xl transition shadow-xs cursor-pointer">補課登錄</button>
             {% else %}
               <button disabled class="w-full py-2.5 bg-gray-100 text-gray-400 text-sm font-medium rounded-xl cursor-not-allowed">補課登錄</button>
             {% endif %}
           </div>
+          {% endif %}
         </div>
         {% endfor %}
       </div>
@@ -151,7 +155,7 @@
     </div>
   </div>
 
-  <script src="/static/js/attendance-dashboard.js?v=20261027_atomic_attendance"></script>
+  <script src="/static/js/attendance-dashboard.js?v=20261030_backfill"></script>
 {% include "platform-footer.html" %}
 </body>
 </html>

@@ -81,3 +81,16 @@ async function doMakeup(courseId) {
   if (!(await confirmAttendance('確定已[補課完成]?'))) return;
   await sendAttendance('makeup', courseId, '🎉 補課登錄成功！');
 }
+
+
+async function doBackfill(courseId, action, cancel = false) {
+  const label = {checkin:'簽到', leave:'請假', makeup:'補課'}[action];
+  if (!label || pendingAttendance.has(String(courseId))) return;
+  const name = document.body.dataset.studentName;
+  const title = document.querySelector(`[data-course-id="${courseId}"]`).dataset.courseTitle;
+  const message = cancel
+    ? `確認要取消[${name}]的[${title}]的[${label} (補登錄)]?`
+    : `確認要協助[${name}]的[${title}]的[${label} (補登錄)]?`;
+  if (!(await confirmAttendance(message))) return;
+  await sendAttendance((cancel ? 'cancel-' : 'backfill-') + action, courseId, cancel ? '已取消補登錄並還原原本紀錄。' : '補登錄成功！');
+}

@@ -105,3 +105,25 @@ test('rapid checkin and leave submissions for one course send only one request',
   await env.context.sendAttendance('checkin',1,'success');
   assert.equal(env.alerts.at(-1),'retry');
 });
+
+
+test('backfill requires exact named confirmation for each action and cancellation', async()=>{
+  for (const [action,label] of [['checkin','簽到'],['leave','請假'],['makeup','補課']]) {
+    const env=setup();
+    env.context.document.body={dataset:{studentName:'測試學員', attendanceApi:'/api/admin/attendance/students/433/',attendanceReload:'/admin/students/433/backfill'}};
+    env.context.document.querySelector=()=>({dataset:{courseTitle:'測試課程'}});
+    env.context.location.replace=url=>env.calls.push({reload:url});
+    let task=env.context.doBackfill(4,action);
+    assert.equal(env.element('attendanceConfirmMessage').textContent,`確認要協助[測試學員]的[測試課程]的[${label} (補登錄)]?`);
+    env.confirm(false);await task;
+    assert.equal(env.calls.filter(c=>c.path).length,0);
+    task=env.context.doBackfill(4,action);env.confirm(true);await task;
+    assert.equal(env.calls.find(c=>c.path).path,'/api/admin/attendance/students/433/backfill-'+action);
+    assert.equal(env.calls.find(c=>c.path).payload.course_id,4);
+    assert.deepEqual(env.calls.at(-1),{reload:'/admin/students/433/backfill'});
+    task=env.context.doBackfill(4,action,true);
+    assert.equal(env.element('attendanceConfirmMessage').textContent,`確認要取消[測試學員]的[測試課程]的[${label} (補登錄)]?`);
+    env.confirm(true);await task;
+    assert.equal(env.calls.filter(c=>c.path).at(-1).path,'/api/admin/attendance/students/433/cancel-'+action);
+  }
+});

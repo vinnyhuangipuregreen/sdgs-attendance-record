@@ -1,4 +1,5 @@
 """Course attendance uses Taiwan time and keeps leave and makeup history."""
+import copy
 from datetime import datetime, timedelta, timezone
 from fastapi import HTTPException
 
@@ -49,7 +50,7 @@ def record_view(course, record, now):
     try:
         class_start, ends = course_window(course)
         closed = now > ends
-        makeup_available = now.astimezone(TAIWAN).date() > class_start.date() and status != "MAKEUP_DONE"
+        makeup_available = now.astimezone(TAIWAN).date() > class_start.date() and status != "MAKEUP_DONE" and record.get("checkin_note") != "補登錄"
     except HTTPException:
         closed = True
         makeup_available = False
@@ -100,3 +101,38 @@ def apply_action(data, student, course_id, action, now, reason=""):
                   "note": "自行登錄", "updated_at": timestamp}
     data["attendances"][key] = record
     return {"success": True, "record": record}
+
+
+def apply_backfill(data, student, course_id, action, now, actor, cancel=False):
+    if action not in {"checkin", "leave", "makeup"}:
+        raise HTTPException(404, "查無此補登錄功能")
+    course = next((c for c in data["courses"] if str(c["id"]) == str(course_id)), None)
+    if course is None:
+        raise HTTPException(404, "查無此課程")
+    key = f"{student['id']}_{course['id']}"
+    previous = data["attendances"].get(key)
+    record = previous or {}
+    statuses = {"checkin": "SIGNED_IN", "leave": "ON_LEAVE", "makeup": "MAKEUP_DONE"}
+    if cancel:
+        backfill = record.get("backfill", {})
+        if backfill.get("action") != action or record.get("status") != statuses[action]:
+            raise HTTPException(409, "此紀錄不是可取消的補登錄，或已有後續紀錄，請重新整理確認")
+        if backfill["previous"] is None:
+            data["attendances"].pop(key)
+        else:
+            data["attendances"][key] = copy.deepcopy(backfill["previous"])
+        return {"success": True}
+    view = record_view(course, record, now)
+    if view["status"] != "ABSENT" or view["signed"] or view["leave_at"] or view["makeup_date"]:
+        raise HTTPException(409, "僅限未出席且尚無簽到、請假或補課紀錄的課程可補登錄")
+    timestamp = now.strftime("%Y-%m-%d %H:%M:%S")
+    saved = {**record, "status": statuses[action], action + "_note": "補登錄", "updated_at": timestamp,
+             "backfill": {"action": action, "previous": copy.deepcopy(previous), "by": actor, "at": timestamp}}
+    if action == "checkin":
+        saved["signed_at"] = timestamp
+    elif action == "leave":
+        saved.update(leave_at=timestamp, reason="補登錄")
+    else:
+        saved.update(makeup_date=timestamp, platform_email=student.get("email_pathdemy") or student["email"], note="補登錄")
+    data["attendances"][key] = saved
+    return {"success": True}

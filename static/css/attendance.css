@@ -79,3 +79,9 @@ body.attendance-platform { display: block; padding: 0; background: var(--ds-bg);
 
 .academic-year-badge { color:#12823d;font-size:14px;font-weight:700;line-height:1.5;flex-shrink:0; }
 @media(max-width:768px){.academic-year-badge{font-size:12px}}
+
+.attendance-backfill .course-record-actions { grid-column: 1 / -1; }
+.attendance-backfill .course-record-actions button:not(:disabled) { background: #dc2626; color: #fff; }
+.attendance-backfill .course-record-actions button:not(:disabled):hover { background: #b91c1c; }
+.attendance-backfill .course-record-actions button[data-backfill-cancel] { background: #fff; color: #b91c1c; }
+.attendance-backfill .course-record-actions button[data-backfill-cancel]:hover { background: #fef2f2; }

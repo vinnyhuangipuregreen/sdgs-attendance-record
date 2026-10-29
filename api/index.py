@@ -8,7 +8,7 @@ from typing import Literal
 from starlette.concurrency import run_in_threadpool
 from api.storage import AttendanceStore, ConcurrentUpdate, DATABASE_NAME
 from api.sso import resolve_session, install_sso, platform_request
-from api.attendance import taiwan_now, record_view, apply_action, checkin_window
+from api.attendance import taiwan_now, record_view, apply_action, apply_backfill, checkin_window
 from api.courses import course_fields
 from api.record_import import RecordImport, import_records
 from pathlib import Path
@@ -231,20 +231,34 @@ async def admin_student_dashboard(platform_id: int, request: Request):
     return student_dashboard(request, student, admin_view=True)
 
 
+@app.get("/admin/students/{platform_id}/backfill", response_class=HTMLResponse)
+async def admin_student_backfill(platform_id: int, request: Request):
+    if not get_current_admin(request):
+        raise HTTPException(403, "需要管理員或講師權限")
+    student = next((s for s in request.state.db["students"] if s.get("platform_key") == f"student:{platform_id}"), None)
+    if student is None:
+        raise HTTPException(404, "此學年度查無此學員")
+    return student_dashboard(request, student, admin_view=True, backfill_view=True)
+
+
 @app.post("/api/admin/attendance/students/{platform_id}/{action}")
 async def admin_student_attendance(platform_id: int, action: str, request: Request):
     if not get_current_admin(request):
         raise HTTPException(403, "需要管理員或講師權限")
-    if action not in {"checkin", "leave", "makeup"}:
+    if action not in {"checkin", "leave", "makeup", "backfill-checkin", "backfill-leave", "backfill-makeup", "cancel-checkin", "cancel-leave", "cancel-makeup"}:
         raise HTTPException(404, "查無此登錄功能")
     student = next((s for s in request.state.db["students"] if s.get("platform_key") == f"student:{platform_id}"), None)
     if student is None:
         raise HTTPException(404, "此學年度查無此學員")
     data = await request.json()
+    if action.startswith(("backfill-", "cancel-")):
+        admin = get_current_admin(request)
+        return apply_backfill(request.state.db, student, data.get("course_id"), action.split("-", 1)[1],
+                              taiwan_now(), admin.get("name") or admin.get("email"), action.startswith("cancel-"))
     return apply_action(request.state.db, student, data.get("course_id"), action, taiwan_now(), data.get("reason", ""))
 
 
-def student_dashboard(request, student, admin_view=False):
+def student_dashboard(request, student, admin_view=False, backfill_view=False):
     now = taiwan_now()
     courses_view = []
     for c in request.state.db["courses"]:
@@ -256,6 +270,7 @@ def student_dashboard(request, student, admin_view=False):
         {
             "student": student,
             "admin_view": admin_view,
+            "backfill_view": backfill_view,
             "stats": {
                 "signed": sum(c["signed"] for c in courses_view),
                 "leave": sum(c["status"] == "ON_LEAVE" or bool(c["leave_at"]) for c in courses_view),
