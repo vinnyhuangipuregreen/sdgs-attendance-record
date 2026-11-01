@@ -7,6 +7,9 @@ import urllib.request
 from contextlib import closing
 from pathlib import Path
 from urllib.parse import urlsplit
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 DATABASE_NAME = "sdgs-attendance-record"
 

@@ -5,3 +5,4 @@ python-multipart>=0.0.9
 pyjwt>=2.8.0
 aiofiles>=23.2.1
 openpyxl
+python-dotenv>=1.0.0
