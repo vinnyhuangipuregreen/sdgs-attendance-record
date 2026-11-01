@@ -92,7 +92,7 @@ async function doBackfill(courseId, action, cancel = false) {
   const name = document.body.dataset.studentName;
   const title = document.querySelector(`[data-course-id="${courseId}"]`).dataset.courseTitle;
   const message = cancel
-    ? `確認要取消[${name}]的[${title}]的[${label} (補登錄)]?`
+    ? `確認要取消[${name}]的[${title}]的[${label} (補登錄)]?${action === 'makeup' ? '\n將一併清空該學員此課程的 NSP 學習紀錄。' : ''}`
     : `確認要協助[${name}]的[${title}]的[${label} (補登錄)]?`;
   if (!(await confirmAttendance(message))) return;
   if (action === 'leave' && !cancel) return openLeaveModal(courseId, title, true);

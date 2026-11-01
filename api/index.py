@@ -241,6 +241,25 @@ async def admin_student_backfill(platform_id: int, request: Request):
     return student_dashboard(request, student, admin_view=True, backfill_view=True)
 
 
+async def reset_nsp_progress(request, student, course_id):
+    course = next((c for c in request.state.db["courses"] if str(c["id"]) == str(course_id)), None)
+    if course is None:
+        raise HTTPException(404, "查無此課程")
+    token = getattr(request.state, "platform_token", None)
+    if not token:
+        raise HTTPException(401, "請重新使用系統單一登入")
+    key = student.get("platform_key", "")
+    student_id = int(key.split(":")[1]) if re.fullmatch(r"student:\d+", key) else None
+    try:
+        result = await run_in_threadpool(platform_request, "/api/nsp/admin/progress/reset", token,
+            {"academic_year_id": request.state.academic_year["id"], "course_title": course["title"],
+             "student_id": student_id, "emails": [student.get(k) or "" for k in ("email", "email_pathdemy")]})
+    except HTTPException as error:
+        raise HTTPException(503, "NSP 學習紀錄尚未清空，補課刪除未完成，請稍後重試") from error
+    if result.get("success") is not True:
+        raise HTTPException(503, "NSP 學習紀錄尚未清空，補課刪除未完成，請稍後重試")
+
+
 @app.post("/api/admin/attendance/students/{platform_id}/{action}")
 async def admin_student_attendance(platform_id: int, action: str, request: Request):
     if not get_current_admin(request):
@@ -253,8 +272,11 @@ async def admin_student_attendance(platform_id: int, action: str, request: Reque
     data = await request.json()
     if action.startswith(("backfill-", "cancel-")):
         admin = get_current_admin(request)
-        return apply_backfill(request.state.db, student, data.get("course_id"), action.split("-", 1)[1],
-                              taiwan_now(), admin.get("name") or admin.get("email"), action.startswith("cancel-"), data.get("reason", ""))
+        result = apply_backfill(request.state.db, student, data.get("course_id"), action.split("-", 1)[1],
+                                taiwan_now(), admin.get("name") or admin.get("email"), action.startswith("cancel-"), data.get("reason", ""))
+        if action == "cancel-makeup":
+            await reset_nsp_progress(request, student, data.get("course_id"))
+        return result
     return apply_action(request.state.db, student, data.get("course_id"), action, taiwan_now(), data.get("reason", ""))
 
 
@@ -871,6 +893,11 @@ async def cancel_makeup(course_id: int, student_id: int, request: Request):
     if not get_current_admin(request): raise HTTPException(status_code=401, detail="未授權")
     key = f"{student_id}_{course_id}"
     record = request.state.db["attendances"].get(key)
+    if record and record.get("status") == "MAKEUP_DONE":
+        student = next((s for s in request.state.db["students"] if s["id"] == student_id), None)
+        if student is None:
+            raise HTTPException(404, "查無此學員")
+        await reset_nsp_progress(request, student, course_id)
     if record and record.get("leave_at"):
         request.state.db["attendances"][key] = {"status": "ON_LEAVE", "reason": record.get("reason", ""),
             "leave_at": record["leave_at"], "updated_at": record["leave_at"],

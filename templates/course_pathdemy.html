@@ -223,7 +223,7 @@
         <h3 class="text-lg font-bold text-slate-900">確認刪除補課紀錄？</h3>
       </div>
       <p class="text-sm text-slate-600" id="deleteModalDesc">
-        確定要刪除該筆補課資料嗎？刪除後對應前台將恢復為未補課狀態。
+        確定要刪除該筆補課資料嗎？刪除後對應前台將恢復為未補課狀態，並清空該學員此課程的 NSP 學習紀錄。
       </p>
       <div class="flex justify-end gap-2.5 pt-2">
         <button type="button" onclick="closeDeleteModal()" class="px-4 py-2 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-100 transition">
@@ -399,7 +399,7 @@
     // 刪除補課紀錄功能
     function promptDeleteRecord(id, studentName) {
       recordToDeleteId = id;
-      document.getElementById("deleteModalDesc").innerHTML = `確定要刪除學員「<strong class="text-slate-900">${escapeHtml(studentName)}</strong>」在課程【${escapeHtml(currentCourse.title)}】的補課紀錄嗎？<br>刪除後該學員在【前台】的此堂課將恢復為未補課狀態。`;
+      document.getElementById("deleteModalDesc").innerHTML = `確定要刪除學員「<strong class="text-slate-900">${escapeHtml(studentName)}</strong>」在課程【${escapeHtml(currentCourse.title)}】的補課紀錄嗎？<br>刪除後該學員在【前台】的此堂課將恢復為未補課狀態，並清空此課程的 NSP 學習紀錄。`;
       document.getElementById("deleteModal").classList.remove("hidden");
     }
 

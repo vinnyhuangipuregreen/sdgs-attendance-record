@@ -220,7 +220,8 @@ class PersistenceTests(unittest.TestCase):
             self.assertNotIn('localStorage',page)
             self.assertIn(record['makeup_date'],page)
             self.assertIn(record['leave_at'],page)
-            self.assertEqual(client.delete('/api/admin/courses/1/pathdemy/2').status_code,200)
+            with patch('api.index.platform_request', return_value={'success':True}):
+                self.assertEqual(client.delete('/api/admin/courses/1/pathdemy/2').status_code,200)
             restored=index.store.load()[1]['attendances']['2_1']
             self.assertEqual(restored['status'],'ON_LEAVE')
             self.assertEqual(restored['leave_at'],record['leave_at'])

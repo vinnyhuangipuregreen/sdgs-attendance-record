@@ -134,7 +134,7 @@ test('backfill requires exact named confirmation for each action and cancellatio
     assert.equal(env.calls.find(c=>c.path).payload.course_id,4);
     assert.deepEqual(env.calls.at(-1),{reload:'/admin/students/433/backfill'});
     task=env.context.doBackfill(4,action,true);
-    assert.equal(env.element('attendanceConfirmMessage').textContent,`確認要取消[測試學員]的[測試課程]的[${label} (補登錄)]?`);
+    assert.equal(env.element('attendanceConfirmMessage').textContent,`確認要取消[測試學員]的[測試課程]的[${label} (補登錄)]?${action === 'makeup' ? '\n將一併清空該學員此課程的 NSP 學習紀錄。' : ''}`);
     env.confirm(true);await task;
     assert.equal(env.calls.filter(c=>c.path).at(-1).path,'/api/admin/attendance/students/433/cancel-'+action);
   }

@@ -147,6 +147,7 @@ class RecordImportTests(unittest.TestCase):
         with patch("api.sso.platform_request", return_value=context):
             page = self.client.get("/admin/courses/1/attendance")
             self.assertIn('data-status="SIGNED_IN"', page.text)
-        response = self.client.delete(f"/api/admin/courses/1/pathdemy/{student['id']}")
+        with patch('api.index.platform_request', return_value={'success':True}):
+            response = self.client.delete(f"/api/admin/courses/1/pathdemy/{student['id']}")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(index.store.load()[1]["attendances"][f"{student['id']}_1"], {"status": "SIGNED_IN", "signed_at": "2026-09-15 00:00:00"})

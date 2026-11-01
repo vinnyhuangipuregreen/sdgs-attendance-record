@@ -14,6 +14,9 @@ class StudentBackfillTests(unittest.TestCase):
     tearDown = dashboard_fixtures.StudentDashboardTests.tearDown
 
     def setUp(self):
+        reset = patch('api.index.platform_request', return_value={'success':True})
+        self.reset_mock = reset.start()
+        self.addCleanup(reset.stop)
         dashboard_fixtures.StudentDashboardTests.setUp(self)
         self.clock = patch('api.index.taiwan_now', return_value=datetime(2026, 10, 30, 12, tzinfo=TAIWAN))
         self.clock.start()
@@ -152,3 +155,28 @@ class StudentBackfillTests(unittest.TestCase):
         self.assertEqual(index.store.load()[1]['attendances']['9_4'],leave)
         self.assertEqual(self.client.post(self.base+'cancel-leave',json={'course_id':4}).status_code,200)
         self.assertEqual(index.store.load()[1]['attendances'],original)
+
+    def test_cancel_makeup_resets_nsp_after_validating_backfill_and_retains_leave(self):
+        self.client.post(self.base+'backfill-leave',json={'course_id':4,'reason':'保留請假'})
+        self.client.post(self.base+'backfill-makeup',json={'course_id':4})
+        before=index.store.load()[1]['attendances']
+        result=self.client.post(self.base+'cancel-makeup',json={'course_id':4})
+        self.assertEqual(result.status_code,200,result.text)
+        path,token,body=self.reset_mock.call_args.args
+        self.assertEqual((path,token),('/api/nsp/admin/progress/reset','verified-admin'))
+        self.assertEqual((body['student_id'],body['course_title'],body['academic_year_id']),(433,'課程4',1))
+        after=index.store.load()[1]['attendances']
+        self.assertEqual(after['9_4']['status'],'ON_LEAVE')
+        self.assertEqual(after['9_4']['reason'],'保留請假')
+        self.assertEqual({k:v for k,v in after.items() if k!='9_4'},{k:v for k,v in before.items() if k!='9_4'})
+        self.reset_mock.reset_mock()
+        self.assertEqual(self.client.post(self.base+'cancel-makeup',json={'course_id':4}).status_code,409)
+        self.reset_mock.assert_not_called()
+
+    def test_cancel_makeup_reset_failure_keeps_backfill_for_retry(self):
+        from fastapi import HTTPException
+        self.client.post(self.base+'backfill-makeup',json={'course_id':4})
+        before=index.store.load()
+        self.reset_mock.side_effect=HTTPException(503,'unavailable')
+        self.assertEqual(self.client.post(self.base+'cancel-makeup',json={'course_id':4}).status_code,503)
+        self.assertEqual(index.store.load(),before)
